@@ -835,6 +835,29 @@ namespace ui
                     ImGui::TextDisabled("Changes take effect the next time the game starts.");
                 return;
             }
+            // Black Edition Content: the current state, the
+            // description, and when a change takes effect.
+            if (o.id == Id::BlackEditionContent)
+            {
+                const char* env = settings::EnvOverride(o.id);
+                const bool on = env ? settings::GetBool(o.id) : settings::GetStoredValue(o.id) != 0.0;  // the toggle's choice
+                ImGui::TextDisabled("Current: %s", on ? "Black Edition enforced." : "Original game.");
+                ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+                ImGui::TextWrapped("%s", o.description);
+                ImGui::PopStyleColor();
+                if (env)
+                    ImGui::TextDisabled("%s sets this for this run: %s. The choice here is saved for later runs.", env,
+                        ValueText(o, settings::GetValue(o.id)).c_str());
+                else if (settings::RestartPending(o.id))
+                {
+                    PushAccentText();
+                    ImGui::TextUnformatted("Takes effect the next time the game starts.");
+                    PopAccentText();
+                }
+                else
+                    ImGui::TextDisabled("Changes take effect the next time the game starts.");
+                return;
+            }
             // The experiment's finer scale wins over Screen Resolution's.
             if (float scale = video::PresentScaleOverride(); o.id == Id::PresentScale && scale > 0.0f)
                 ImGui::TextDisabled("NFSMW_PRESENT_SCALE sets %.2f for this run.", double(scale));
@@ -859,7 +882,7 @@ namespace ui
                 ImGui::TextDisabled("%s", note.c_str());  // what Auto runs at now
             else if (o.id == Id::HideEsrbDisclaimer)
             {
-                ImGui::TextDisabled("%s", settings::GetBool(o.id) ? "Hidden." : "Shown.");
+                ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Hidden." : "Shown.");
                 ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
                 ImGui::TextWrapped("%s", o.description);
                 ImGui::PopStyleColor();

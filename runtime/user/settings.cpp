@@ -507,6 +507,10 @@ namespace settings
               .description = "The language of the game's menus and race text: English (the USA disc's), or French, German, Italian, Spanish, Dutch, Swedish, Danish, Polish or Finnish, from the same disc's files. The movies and the speech stay in English, as the disc has them. The European (PAL) Spanish disc has Spanish movies and speech, and starts in Spanish; another language there keeps them in Spanish.",
               .env = "NFSMW_LANGUAGE", .defaultValue = double(game::language::kEnglish), .entries = kLanguageEntries },
             // Fixes
+            { .id = Id::BlackEditionContent, .category = Category::Fixes, .type = Type::Bool, .apply = Apply::Restart,
+              .table = "fixes", .key = "black_edition_content", .label = "Black Edition Content",
+              .description = "Black Edition content left in the game but never commercially released on Xbox 360.",
+              .env = "NFSMW_FIX_BLACK_EDITION", .defaultValue = 0 },
             { .id = Id::HideEsrbDisclaimer, .category = Category::Fixes, .type = Type::Bool, .apply = Apply::Live,
               .table = "fixes", .key = "hide_esrb_disclaimer", .label = "Hide ESRB Disclaimer",
               .description = "Online play notice on the splash screen. USA release only; already hidden on other releases.",

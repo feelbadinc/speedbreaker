@@ -33,6 +33,7 @@
 #include <user/paths.h>
 #include <user/settings.h>
 #include <user/version_check.h>
+#include <game/fixes.h>
 #include <game/language.h>
 
 #include <SDL3/SDL.h>
@@ -633,6 +634,8 @@ int main(int argc, char** argv)
         }
     }
     report::LogSystemSummary();
+
+    fixes::ApplyAtBoot();  // the Restart fixes that write game data, before the game's code runs
 
     g_userHeap.Init();
     module::Initialize(file, uint32_t(image.base), image.size, uint32_t(image.entry_point));
