@@ -953,8 +953,7 @@ namespace ui
         // before this) takes the waiting row's focus, and KeyRow then ends
         // the wait before that check could see it.
         const bool wasWaiting = s_waiting != Id::Count;
-        // With every page shown the names don't fit at 16px padding,
-        // squeeze the padding just enough (not below 8px).
+        // Stretch the tabs to fill the bar (padding not below 8px)
         float tabPadding = ImGui::GetStyle().FramePadding.x;
         {
             float names = 0.0f;
@@ -969,7 +968,7 @@ namespace ui
             {
                 // tab = name + padding*2 + 1px, see TabItemCalcSize
                 float room = ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemInnerSpacing.x * (tabs - 1) - names - tabs;
-                tabPadding = std::clamp(std::floor(room / (2 * tabs)), 8.0f * s, tabPadding);
+                tabPadding = std::max(std::floor(room / (2 * tabs)), 8.0f * s);
             }
         }
         // BeginTabBar keeps its own copy of the padding for the labels, so it needs it too
