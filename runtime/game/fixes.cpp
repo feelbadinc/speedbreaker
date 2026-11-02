@@ -40,6 +40,34 @@ SB_HOOK(sub_8227FF60)
     SB_ORIGINAL(sub_8227FF60)(ctx, base);
 }
 
+// Fix Busted Scenes: the arrest-scene chooser (sub_82135F98) falls through from
+// heat 2 and 3 into the next heat's pick, so heat 4+ scenes replace their
+// ArrestM04/F23/M07/M14/F14 (and "b") scenes. Ported from NFSMWExOpts
+// (BustedNISFix). The hooks (config/nfsmw.toml) end the chooser right after the
+// heat 2 or 3 pick, so the next one doesn't overwrite it. r31 is the heat level,
+// r30 the picked scene's name.
+namespace
+{
+    bool KeepBustedScene(bool pickedEarlier, const PPCRegister& r31, const PPCRegister& r30)
+    {
+        if (!pickedEarlier || !settings::GetBool(settings::Id::FixBustedScenes))
+            return false;
+        fprintf(stderr, "[fixes] Busted scene: heat %u keeps %.32s\n", r31.u32,
+            static_cast<const char*>(g_memory.Translate(r30.u32)));
+        return true;
+    }
+}
+
+bool BustedSceneBeforeHeat3Pick(PPCRegister& r31, PPCRegister& r30)
+{
+    return KeepBustedScene(r31.u32 < 3, r31, r30);
+}
+
+bool BustedSceneBeforeHeat4Pick(PPCRegister& r31, PPCRegister& r30)
+{
+    return KeepBustedScene(r31.u32 < 4, r31, r30);
+}
+
 namespace fixes
 {
     void ApplyAtBoot()

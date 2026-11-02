@@ -140,6 +140,7 @@ namespace settings
         GameLanguage,  // game/language.cpp: the game's language, game::language's ids (English = 0)
         // Fixes (the [fixes] table): game/fixes.cpp
         BlackEditionContent,
+        FixBustedScenes,
         HideEsrbDisclaimer,
         // Advanced
         AsyncShaders,

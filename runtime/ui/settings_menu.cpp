@@ -244,6 +244,14 @@ namespace ui
                 LogChange(o, stored, settings::Set(o.id, next));
         }
 
+        // A row's description in grey, under its status line.
+        void RowDescription(const settings::Option& o)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+            ImGui::TextWrapped("%s", o.description);
+            ImGui::PopStyleColor();
+        }
+
         // A row the menu shows: not hidden, and Smooth Motion only where the
         // display can show it (video::HfrOffered) or while it's on (so it
         // can be turned off from any screen).
@@ -842,9 +850,7 @@ namespace ui
                 const char* env = settings::EnvOverride(o.id);
                 const bool on = env ? settings::GetBool(o.id) : settings::GetStoredValue(o.id) != 0.0;  // the toggle's choice
                 ImGui::TextDisabled("Current: %s", on ? "Black Edition enforced." : "Original game.");
-                ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-                ImGui::TextWrapped("%s", o.description);
-                ImGui::PopStyleColor();
+                RowDescription(o);
                 if (env)
                     ImGui::TextDisabled("%s sets this for this run: %s. The choice here is saved for later runs.", env,
                         ValueText(o, settings::GetValue(o.id)).c_str());
@@ -883,9 +889,12 @@ namespace ui
             else if (o.id == Id::HideEsrbDisclaimer)
             {
                 ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Hidden." : "Shown.");
-                ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-                ImGui::TextWrapped("%s", o.description);
-                ImGui::PopStyleColor();
+                RowDescription(o);
+            }
+            else if (o.id == Id::FixBustedScenes)
+            {
+                ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Bugfix." : "Original behavior.");
+                RowDescription(o);
             }
             // The wheel the page is about - and, for the two rows that need
             // its motors, whether this system can drive them at all (on a Mac

@@ -254,3 +254,23 @@ registers = ["f10"]
 name = "WorldSteps"
 address = 0x823A2424
 registers = ["r30"]
+
+# Fix Busted Scenes (runtime/game/fixes.cpp): the starts of the heat 3 and heat
+# 4+ picks in the arrest-scene chooser (sub_82135F98); true jumps to its end.
+[[midasm_hook]]
+name = "BustedSceneBeforeHeat3Pick"
+address = 0x821363F4
+registers = ["r31", "r30"]
+jump_address_on_true = 0x82136770
+
+[[midasm_hook]]
+name = "BustedSceneBeforeHeat4Pick"
+address = 0x82136578
+registers = ["r31", "r30"]
+jump_address_on_true = 0x82136770
+
+[[midasm_hook]]
+name = "BustedSceneBeforeHeat4Pick"
+address = 0x82136580
+registers = ["r31", "r30"]
+jump_address_on_true = 0x82136770
