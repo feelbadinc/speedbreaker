@@ -253,6 +253,8 @@ namespace ui
                 return false;
             if (o.id == Id::SmoothMotion)
                 return video::HfrOffered() || settings::GetStoredValue(o.id) != 0.0 || settings::GetBool(o.id);
+            if (o.id == Id::HideEsrbDisclaimer)  // the non-US builds have no such notice
+                return region::Current() == region::Release::Usa;
             return true;
         }
 
@@ -855,6 +857,13 @@ namespace ui
                 ImGui::TextDisabled("Changes take effect the next time the game starts.");
             else if (std::string note = o.id == Id::FrameRate ? video::AutoFrameRateNote() : std::string(); !note.empty())
                 ImGui::TextDisabled("%s", note.c_str());  // what Auto runs at now
+            else if (o.id == Id::HideEsrbDisclaimer)
+            {
+                ImGui::TextDisabled("%s", settings::GetBool(o.id) ? "Hidden." : "Shown.");
+                ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+                ImGui::TextWrapped("%s", o.description);
+                ImGui::PopStyleColor();
+            }
             // The wheel the page is about - and, for the two rows that need
             // its motors, whether this system can drive them at all (on a Mac
             // only the wheels SDL's own Logitech driver takes: hid/wheel.h).

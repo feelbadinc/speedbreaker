@@ -138,6 +138,8 @@ namespace settings
         KeyRightStickClick, KeyRightStickClick2,
         // Game (the [game] table)
         GameLanguage,  // game/language.cpp: the game's language, game::language's ids (English = 0)
+        // Fixes (the [fixes] table): game/fixes.cpp
+        HideEsrbDisclaimer,
         // Advanced
         AsyncShaders,
         PerformanceOverlay,

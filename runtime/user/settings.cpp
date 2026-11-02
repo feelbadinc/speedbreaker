@@ -506,6 +506,11 @@ namespace settings
               .table = "game", .key = "language", .label = "Language",
               .description = "The language of the game's menus and race text: English (the USA disc's), or French, German, Italian, Spanish, Dutch, Swedish, Danish, Polish or Finnish, from the same disc's files. The movies and the speech stay in English, as the disc has them. The European (PAL) Spanish disc has Spanish movies and speech, and starts in Spanish; another language there keeps them in Spanish.",
               .env = "NFSMW_LANGUAGE", .defaultValue = double(game::language::kEnglish), .entries = kLanguageEntries },
+            // Fixes
+            { .id = Id::HideEsrbDisclaimer, .category = Category::Fixes, .type = Type::Bool, .apply = Apply::Live,
+              .table = "fixes", .key = "hide_esrb_disclaimer", .label = "Hide ESRB Disclaimer",
+              .description = "Online play notice on the splash screen. USA release only; already hidden on other releases.",
+              .env = "NFSMW_FIX_ESRB", .defaultValue = 0 },
             // Advanced
             { .id = Id::AsyncShaders, .category = Category::Advanced, .type = Type::Bool, .apply = Apply::Live,
               .table = "advanced", .key = "async_shaders", .label = "Asynchronous Shaders",
