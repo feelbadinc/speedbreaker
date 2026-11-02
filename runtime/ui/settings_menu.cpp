@@ -15,6 +15,7 @@
 
 #include <game/language.h>  // the Language row's note: what the installed files give
 #include <gpu/renderer.h>    // Internal Resolution's labels: what each entry renders now
+#include <region/region.h>   // the Fixes page: USA only for now
 #include <report/report.h>
 #include <user/settings.h>
 #include <hid/key_map.h>     // the Controls page: one row per control, two keys each
@@ -96,9 +97,11 @@ namespace ui
         bool PageShown(Category c)
         {
             if (c == Category::Wheel)
-                return hid::wheel::Found();
+                return true; // !! TODO put hid::wheel::Found() back
             if (c == Category::Game)  // its one row, Language, isn't shown on iPhone and iPad
                 return !settings::Info(Id::GameLanguage).hidden;
+            if (c == Category::Fixes)  // USA only for now
+                return region::Current() == region::Release::Usa;
 #if defined(__APPLE__) && TARGET_OS_IOS
             if (c == Category::Controls)
                 return SDL_HasKeyboard();
@@ -950,7 +953,30 @@ namespace ui
         // before this) takes the waiting row's focus, and KeyRow then ends
         // the wait before that check could see it.
         const bool wasWaiting = s_waiting != Id::Count;
-        if (ImGui::BeginTabBar("pages", ImGuiTabBarFlags_NoTooltip))
+        // With every page shown the names don't fit at 16px padding,
+        // squeeze the padding just enough (not below 8px).
+        float tabPadding = ImGui::GetStyle().FramePadding.x;
+        {
+            float names = 0.0f;
+            int tabs = 0;
+            for (int c = 0; c < kCategories; c++)
+                if (PageShown(Category(c)))
+                {
+                    names += ImGui::CalcTextSize(settings::CategoryName(Category(c))).x;
+                    tabs++;
+                }
+            if (tabs > 0)
+            {
+                // tab = name + padding*2 + 1px, see TabItemCalcSize
+                float room = ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemInnerSpacing.x * (tabs - 1) - names - tabs;
+                tabPadding = std::clamp(std::floor(room / (2 * tabs)), 8.0f * s, tabPadding);
+            }
+        }
+        // BeginTabBar keeps its own copy of the padding for the labels, so it needs it too
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(tabPadding, ImGui::GetStyle().FramePadding.y));
+        const bool tabBar = ImGui::BeginTabBar("pages", ImGuiTabBarFlags_NoTooltip);
+        ImGui::PopStyleVar();
+        if (tabBar)
         {
             for (int c = 0; c < kCategories; c++)
             {
@@ -959,7 +985,9 @@ namespace ui
                     continue;
                 ImGuiTabItemFlags tabFlags = (s_tabPending && category == s_category) ? ImGuiTabItemFlags_SetSelected : 0;
                 ImGui::PushItemFlag(ImGuiItemFlags_NoNav, true);
+                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(tabPadding, ImGui::GetStyle().FramePadding.y));
                 bool open = ImGui::BeginTabItem(settings::CategoryName(category), nullptr, tabFlags);
+                ImGui::PopStyleVar(); // tabs only, not the page
                 ImGui::PopItemFlag();
                 if (!open)
                     continue;

@@ -501,6 +501,11 @@ namespace settings
             KeyOption2(Id::KeyLeftStickClick2, "left_stick_click_2", "Left Stick Click", "none"),
             KeyOption(Id::KeyRightStickClick, "right_stick_click", "Right Stick Click", "Pressing the right stick in.", "c"),
             KeyOption2(Id::KeyRightStickClick2, "right_stick_click_2", "Right Stick Click", "none"),
+            // Game
+            { .id = Id::GameLanguage, .category = Category::Game, .type = Type::Enum, .apply = Apply::Restart, .hidden = kLanguageHidden,
+              .table = "game", .key = "language", .label = "Language",
+              .description = "The language of the game's menus and race text: English (the USA disc's), or French, German, Italian, Spanish, Dutch, Swedish, Danish, Polish or Finnish, from the same disc's files. The movies and the speech stay in English, as the disc has them. The European (PAL) Spanish disc has Spanish movies and speech, and starts in Spanish; another language there keeps them in Spanish.",
+              .env = "NFSMW_LANGUAGE", .defaultValue = double(game::language::kEnglish), .entries = kLanguageEntries },
             // Advanced
             { .id = Id::AsyncShaders, .category = Category::Advanced, .type = Type::Bool, .apply = Apply::Live,
               .table = "advanced", .key = "async_shaders", .label = "Asynchronous Shaders",
@@ -510,11 +515,6 @@ namespace settings
               .table = "advanced", .key = "performance_overlay", .label = "Performance Overlay",
               .description = "Show the frame rate and frame time in a corner of the screen.",
               .env = "NFSMW_PERF_OVERLAY", .defaultValue = 0 },
-            // Game
-            { .id = Id::GameLanguage, .category = Category::Game, .type = Type::Enum, .apply = Apply::Restart, .hidden = kLanguageHidden,
-              .table = "game", .key = "language", .label = "Language",
-              .description = "The language of the game's menus and race text: English (the USA disc's), or French, German, Italian, Spanish, Dutch, Swedish, Danish, Polish or Finnish, from the same disc's files. The movies and the speech stay in English, as the disc has them. The European (PAL) Spanish disc has Spanish movies and speech, and starts in Spanish; another language there keeps them in Spanish.",
-              .env = "NFSMW_LANGUAGE", .defaultValue = double(game::language::kEnglish), .entries = kLanguageEntries },
         };
         static_assert(std::size(kOptions) == kCount, "one row per settings::Id");
 
@@ -1322,6 +1322,7 @@ namespace settings
         case Category::Controls: return "Controls";
         case Category::Wheel: return "Wheel";
         case Category::Game: return "Game";
+        case Category::Fixes: return "Fixes";
         case Category::Advanced: return "Advanced";
         default: return "";
         }

@@ -136,11 +136,11 @@ namespace settings
         KeyRightStickRight, KeyRightStickRight2,
         KeyLeftStickClick, KeyLeftStickClick2,
         KeyRightStickClick, KeyRightStickClick2,
+        // Game (the [game] table)
+        GameLanguage,  // game/language.cpp: the game's language, game::language's ids (English = 0)
         // Advanced
         AsyncShaders,
         PerformanceOverlay,
-        // Game (the [game] table)
-        GameLanguage,  // game/language.cpp: the game's language, game::language's ids (English = 0)
         Count
     };
     constexpr size_t kCount = size_t(Id::Count);
@@ -148,7 +148,7 @@ namespace settings
     // Key: a key code of user/key_names.h (0: no key), saved by its name
     // there ("w", "left_shift", "none"); the menu takes it from a key press.
     enum class Type : uint8_t { Bool, Int, Float, Enum, Key };
-    enum class Category : uint8_t { Display, Graphics, Audio, Input, Wheel, Controls, Game, Advanced, Count };
+    enum class Category : uint8_t { Display, Graphics, Audio, Input, Wheel, Controls, Game, Fixes, Advanced, Count };
     enum class Apply : uint8_t { Live, Restart };
 
     // Values of the enum options (GetInt returns them).
