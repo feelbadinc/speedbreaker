@@ -161,6 +161,13 @@ namespace settings
             { 400, "400", "400 nits" },
         };
 
+        constexpr EnumEntry kIntroVideosEntries[] = {
+            { int32_t(IntroVideos::Original), "original", "Original videos" },
+            { int32_t(IntroVideos::EaLogoOnly), "ea_logo_only", "Play EA logo only" },
+            { int32_t(IntroVideos::SkipEaHd), "skip_ea_hd", "Skip EA HD bumper" },
+            { int32_t(IntroVideos::SkipAll), "skip_all", "Skip every intro video" },
+        };
+
         constexpr EnumEntry kAspectEntries[] = {
             { int32_t(AspectMode::Auto), "auto", "Fill Screen" },
             { int32_t(AspectMode::Widescreen), "16:9", "16:9" },
@@ -519,6 +526,10 @@ namespace settings
               .table = "fixes", .key = "hide_esrb_disclaimer", .label = "Hide ESRB Disclaimer",
               .description = "Online play notice on the splash screen. USA release only; already hidden on other releases.",
               .env = "NFSMW_FIX_ESRB", .defaultValue = 0 },
+            { .id = Id::IntroVideos, .category = Category::Fixes, .type = Type::Enum, .apply = Apply::Restart,
+              .table = "fixes", .key = "intro_videos", .label = "Intro Videos",
+              .description = "Choose which intro videos to play.",
+              .env = "NFSMW_FIX_INTRO_VIDEOS", .defaultValue = double(int32_t(IntroVideos::Original)), .entries = kIntroVideosEntries },
             // Advanced
             { .id = Id::AsyncShaders, .category = Category::Advanced, .type = Type::Bool, .apply = Apply::Live,
               .table = "advanced", .key = "async_shaders", .label = "Asynchronous Shaders",

@@ -142,6 +142,7 @@ namespace settings
         BlackEditionContent,
         FixBustedScenes,
         HideEsrbDisclaimer,
+        IntroVideos,
         // Advanced
         AsyncShaders,
         PerformanceOverlay,
@@ -177,6 +178,11 @@ namespace settings
     // taller view (Vert+, down to 4:3). Only a screen within 1% of 16:9 keeps
     // the 16:9 frame (video::kTallMinStretch). Widescreen: 16:9 with bars.
     enum class AspectMode : int32_t { Auto = 0, Widescreen = 1 };
+    // Intro Videos (game/fixes.cpp): which videos play before the title screen.
+    enum class IntroVideos : int32_t
+    {
+        Original = 0, EaLogoOnly = 1, SkipEaHd = 2, SkipAll = 3
+    };
     // Anisotropy: 1 (off), 2, 4, 8, 16, or one of these.
     constexpr int32_t kAnisotropyAuto = 0;   // 16x on a discrete GPU or an M-series iPad, 4x on other integrated ones
     constexpr int32_t kAnisotropyGame = -1;  // each texture's own setting, as on the 360

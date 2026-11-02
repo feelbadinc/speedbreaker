@@ -252,6 +252,27 @@ namespace ui
             ImGui::PopStyleColor();
         }
 
+        // A Restart fix's row: current state (currentText,
+        // or the entry label), description, restart note.
+        void RestartFixRow(const settings::Option& o, const char* (*currentText)(double choice) = nullptr)
+        {
+            const char* env = settings::EnvOverride(o.id);
+            const double choice = env ? settings::GetValue(o.id) : settings::GetStoredValue(o.id);
+            ImGui::TextDisabled("Current: %s.", currentText ? currentText(choice) : ValueText(o, choice).c_str());
+            RowDescription(o);
+            if (env)
+                ImGui::TextDisabled("%s sets this for this run: %s. The choice here is saved for later runs.", env,
+                    ValueText(o, settings::GetValue(o.id)).c_str());
+            else if (settings::RestartPending(o.id))
+            {
+                PushAccentText();
+                ImGui::TextUnformatted("Takes effect the next time the game starts.");
+                PopAccentText();
+            }
+            else
+                ImGui::TextDisabled("Changes take effect the next time the game starts.");
+        }
+
         // A row the menu shows: not hidden, and Smooth Motion only where the
         // display can show it (video::HfrOffered) or while it's on (so it
         // can be turned off from any screen).
@@ -843,25 +864,14 @@ namespace ui
                     ImGui::TextDisabled("Changes take effect the next time the game starts.");
                 return;
             }
-            // Black Edition Content: the current state, the
-            // description, and when a change takes effect.
             if (o.id == Id::BlackEditionContent)
             {
-                const char* env = settings::EnvOverride(o.id);
-                const bool on = env ? settings::GetBool(o.id) : settings::GetStoredValue(o.id) != 0.0;  // the toggle's choice
-                ImGui::TextDisabled("Current: %s", on ? "Black Edition enforced." : "Original game.");
-                RowDescription(o);
-                if (env)
-                    ImGui::TextDisabled("%s sets this for this run: %s. The choice here is saved for later runs.", env,
-                        ValueText(o, settings::GetValue(o.id)).c_str());
-                else if (settings::RestartPending(o.id))
-                {
-                    PushAccentText();
-                    ImGui::TextUnformatted("Takes effect the next time the game starts.");
-                    PopAccentText();
-                }
-                else
-                    ImGui::TextDisabled("Changes take effect the next time the game starts.");
+                RestartFixRow(o, [](double choice) { return choice != 0.0 ? "Black Edition enforced" : "Original game"; });
+                return;
+            }
+            if (o.id == Id::IntroVideos)
+            {
+                RestartFixRow(o);
                 return;
             }
             // The experiment's finer scale wins over Screen Resolution's.
