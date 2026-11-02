@@ -97,7 +97,7 @@ namespace ui
         bool PageShown(Category c)
         {
             if (c == Category::Wheel)
-                return true; // !! TODO put hid::wheel::Found() back
+                return hid::wheel::Found();
             if (c == Category::Game)  // its one row, Language, isn't shown on iPhone and iPad
                 return !settings::Info(Id::GameLanguage).hidden;
             if (c == Category::Fixes)  // USA only for now
