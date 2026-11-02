@@ -274,3 +274,16 @@ name = "BustedSceneBeforeHeat4Pick"
 address = 0x82136580
 registers = ["r31", "r30"]
 jump_address_on_true = 0x82136770
+
+# Subtitles (runtime/game/fixes.cpp): the checks in sub_822874C8. Force On
+# jumps from the language check to the "load the subtitles" path; Force Off
+# skips the language branch, leaving only the tutorial check.
+[[midasm_hook]]
+name = "SubtitlesForceOn"
+address = 0x822874E8
+jump_address_on_true = 0x82287508
+
+[[midasm_hook]]
+name = "SubtitlesForceOff"
+address = 0x822874F4
+jump_address_on_true = 0x822874F8

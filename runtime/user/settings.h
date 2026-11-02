@@ -143,6 +143,7 @@ namespace settings
         FixBustedScenes,
         HideEsrbDisclaimer,
         IntroVideos,
+        Subtitles,
         // Advanced
         AsyncShaders,
         PerformanceOverlay,
@@ -183,6 +184,9 @@ namespace settings
     {
         Original = 0, EaLogoOnly = 1, SkipEaHd = 2, SkipAll = 3
     };
+    // Subtitles (game/fixes.cpp): Auto = stock behavior,
+    // Force On = every movie, Force Off = tutorials only.
+    enum class Subtitles : int32_t { Auto = 0, ForceOn = 1, ForceOff = 2 };
     // Anisotropy: 1 (off), 2, 4, 8, 16, or one of these.
     constexpr int32_t kAnisotropyAuto = 0;   // 16x on a discrete GPU or an M-series iPad, 4x on other integrated ones
     constexpr int32_t kAnisotropyGame = -1;  // each texture's own setting, as on the 360

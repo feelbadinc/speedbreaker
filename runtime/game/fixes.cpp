@@ -122,11 +122,30 @@ SB_HOOK(sub_822B8988)
 }
 
 // The boot sequence's next screen: a late movie-finished signal can arrive
-// after the game deleted the sequence (r3 = 0). WFP NextScreen fix.
+// after the game deleted the sequence (r3 = 0). Ported from WFP NextScreen fix.
 SB_HOOK(sub_822B8458)
 {
     if (ctx.r3.u32)
         SB_ORIGINAL(sub_822B8458)(ctx, base);
+}
+
+// Subtitles: sub_822874C8 loads a movie's subtitles only when the game language
+// differs from the VO or the movie is a tutorial. The hooks (config/nfsmw.toml):
+// Force On skips both checks (ported from NFSMWExOpts ShowSubs),
+// Force Off the language one, so only tutorials keep them (ported from WFP).
+static bool SubtitlesMode(settings::Subtitles mode)
+{
+    return settings::Subtitles(settings::GetInt(settings::Id::Subtitles)) == mode;
+}
+
+bool SubtitlesForceOn()
+{
+    return SubtitlesMode(settings::Subtitles::ForceOn);
+}
+
+bool SubtitlesForceOff()
+{
+    return SubtitlesMode(settings::Subtitles::ForceOff);
 }
 
 namespace fixes

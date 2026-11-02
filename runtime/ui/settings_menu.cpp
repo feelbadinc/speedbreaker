@@ -906,6 +906,11 @@ namespace ui
                 ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Bugfix." : "Original behavior.");
                 RowDescription(o);
             }
+            else if (o.id == Id::Subtitles)
+            {
+                ImGui::TextDisabled("Current: %s.", ValueText(o, settings::GetValue(o.id)).c_str());
+                RowDescription(o);
+            }
             // The wheel the page is about - and, for the two rows that need
             // its motors, whether this system can drive them at all (on a Mac
             // only the wheels SDL's own Logitech driver takes: hid/wheel.h).

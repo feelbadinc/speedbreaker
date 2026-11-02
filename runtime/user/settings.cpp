@@ -168,6 +168,12 @@ namespace settings
             { int32_t(IntroVideos::SkipAll), "skip_all", "Skip every intro video" },
         };
 
+        constexpr EnumEntry kSubtitlesEntries[] = {
+            { int32_t(Subtitles::Auto), "auto", "Auto" },
+            { int32_t(Subtitles::ForceOn), "force_on", "Force On" },
+            { int32_t(Subtitles::ForceOff), "force_off", "Force Off" },
+        };
+
         constexpr EnumEntry kAspectEntries[] = {
             { int32_t(AspectMode::Auto), "auto", "Fill Screen" },
             { int32_t(AspectMode::Widescreen), "16:9", "16:9" },
@@ -530,6 +536,10 @@ namespace settings
               .table = "fixes", .key = "intro_videos", .label = "Intro Videos",
               .description = "Choose which intro videos to play.",
               .env = "NFSMW_FIX_INTRO_VIDEOS", .defaultValue = double(int32_t(IntroVideos::Original)), .entries = kIntroVideosEntries },
+            { .id = Id::Subtitles, .category = Category::Fixes, .type = Type::Enum, .apply = Apply::Live,
+              .table = "fixes", .key = "subtitles", .label = "Subtitles",
+              .description = "The game automatically shows story movie subtitles only when its locale differs from the voiceover language. You can choose to force them on or off regardless.",
+              .env = "NFSMW_FIX_SUBTITLES", .defaultValue = double(int32_t(Subtitles::Auto)), .entries = kSubtitlesEntries },
             // Advanced
             { .id = Id::AsyncShaders, .category = Category::Advanced, .type = Type::Bool, .apply = Apply::Live,
               .table = "advanced", .key = "async_shaders", .label = "Asynchronous Shaders",
