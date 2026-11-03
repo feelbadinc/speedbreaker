@@ -13,8 +13,8 @@
 # the game, the libraries it needs that SteamOS doesn't provide at the
 # versions it was built against, the launcher (bundle/speedbreaker.sh), the
 # player's README (bundle/README.md, or bundle/README-steam-frame.md for
-# arm64) and licenses. Never any game data: players install from their own
-# disc image on the first run.
+# arm64), resources/ (the HD gamepad prompts) and licenses. Never any game data:
+# players install from their own disc image on the first run.
 #
 # The launcher is the only program at the top of the folder: the game is
 # lib/SpeedBreaker, beside its libraries (since v0.1.1; v0.1.0 had it at the
@@ -127,6 +127,11 @@ cp "$SCRIPTS/bundle/speedbreaker.sh" "$STAGE/"
 cp "$SCRIPTS/bundle/$README" "$STAGE/README.md"
 chmod 755 "$GAME" "$STAGE/speedbreaker.sh"
 echo "SpeedBreaker v$VERSION ($COMMIT, built $(date -u -r "$BIN" +%F)), SteamOS $ARCH" > "$STAGE/VERSION"
+# The game's own files ([fixes] gamepad_prompts' HD icons), the build's copy:
+# at the top, where lib/SpeedBreaker finds them (it looks in the folders
+# above its own).
+[ -d "$BUILD/runtime/resources" ] || { echo "make_bundle.sh: no $BUILD/runtime/resources" >&2; exit 1; }
+cp -r "$BUILD/runtime/resources" "$STAGE/"
 
 # Sorted by soname; `ldd` lists the whole closure. A library the build found
 # outside the system's folders (CMake's <Package>_DIR, such as the Frame's

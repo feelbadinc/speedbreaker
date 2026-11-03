@@ -171,6 +171,14 @@ add_custom_target(nfsmw_build_info
     VERBATIM)
 add_dependencies(SpeedBreaker nfsmw_build_info)
 
+# resources/ (HD button icons) next to the binary: replaced on
+# every build, so edits and deletions reach it without a relink.
+add_custom_target(nfsmw_resources
+    COMMAND ${CMAKE_COMMAND} -E rm -rf $<TARGET_FILE_DIR:SpeedBreaker>/resources
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/resources $<TARGET_FILE_DIR:SpeedBreaker>/resources
+    VERBATIM)
+add_dependencies(SpeedBreaker nfsmw_resources)
+
 if(SB_HAVE_PAL_ES)
     target_link_libraries(SpeedBreaker PRIVATE NfsmwRecompPalEsLib)
     target_compile_definitions(SpeedBreaker PRIVATE SB_PAL_ES=1)
