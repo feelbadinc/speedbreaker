@@ -168,6 +168,15 @@ namespace settings
             { int32_t(IntroVideos::SkipAll), "skip_all", "Skip every intro video" },
         };
 
+        constexpr EnumEntry kGamepadPromptsEntries[] = {
+            { int32_t(GamepadPrompts::Original), "original", "Xbox 360 (Original)" },
+            { int32_t(GamepadPrompts::Xbox360), "xbox_360", "Xbox 360 (HD)" },
+            { int32_t(GamepadPrompts::XboxOne), "xbox_one", "Xbox One™" },
+            { int32_t(GamepadPrompts::Ps3), "ps3", "PlayStation®3" },
+            { int32_t(GamepadPrompts::Ps4), "ps4", "PlayStation®4" },
+            { int32_t(GamepadPrompts::Switch), "switch", "Nintendo Switch™" },
+        };
+
         constexpr EnumEntry kSubtitlesEntries[] = {
             { int32_t(Subtitles::Auto), "auto", "Auto" },
             { int32_t(Subtitles::ForceOn), "force_on", "Force On" },
@@ -522,12 +531,16 @@ namespace settings
             // Fixes
             { .id = Id::BlackEditionContent, .category = Category::Fixes, .type = Type::Bool, .apply = Apply::Restart,
               .table = "fixes", .key = "black_edition_content", .label = "Black Edition Content",
-              .description = "Black Edition content left in the game but never commercially released on Xbox 360.",
+              .description = "Black Edition content left in the game files but never commercially released on Xbox 360.",
               .env = "NFSMW_FIX_BLACK_EDITION", .defaultValue = 0 },
             { .id = Id::FixBustedScenes, .category = Category::Fixes, .type = Type::Bool, .apply = Apply::Live,
               .table = "fixes", .key = "fix_busted_scenes", .label = "Fix Busted Scenes",
-              .description = "The original game plays the heat levels 4+ busted scenes at levels 2 and 3 due to a missing break in a switch case.",
+              .description = "The original game plays the heat levels 4+ busted scenes at heat level 2 and heat level 3 due to a missing break in a switch case.",
               .env = "NFSMW_FIX_BUSTED_SCENES", .defaultValue = 0 },
+            { .id = Id::GamepadPrompts, .category = Category::Fixes, .type = Type::Enum, .apply = Apply::Restart,
+              .table = "fixes", .key = "gamepad_prompts", .label = "Gamepad Prompts",
+              .description = "Optional HD gamepad prompts by Aero_ for various systems, including a redrawn Xbox 360 set.",
+              .env = "NFSMW_FIX_GAMEPAD_PROMPTS", .defaultValue = double(int32_t(GamepadPrompts::Original)), .entries = kGamepadPromptsEntries },
             { .id = Id::HideEsrbDisclaimer, .category = Category::Fixes, .type = Type::Bool, .apply = Apply::Live,
               .table = "fixes", .key = "hide_esrb_disclaimer", .label = "Hide ESRB Disclaimer",
               .description = "Online play notice on the splash screen. USA release only; already hidden on other releases.",

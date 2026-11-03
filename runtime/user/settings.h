@@ -141,6 +141,7 @@ namespace settings
         // Fixes (the [fixes] table): game/fixes.cpp
         BlackEditionContent,
         FixBustedScenes,
+        GamepadPrompts,
         HideEsrbDisclaimer,
         IntroVideos,
         Subtitles,
@@ -154,7 +155,10 @@ namespace settings
     // Key: a key code of user/key_names.h (0: no key), saved by its name
     // there ("w", "left_shift", "none"); the menu takes it from a key press.
     enum class Type : uint8_t { Bool, Int, Float, Enum, Key };
-    enum class Category : uint8_t { Display, Graphics, Audio, Input, Wheel, Controls, Game, Fixes, Advanced, Count };
+    enum class Category : uint8_t
+    {
+        Display, Graphics, Audio, Input, Wheel, Controls, Game, Fixes, Advanced, Count
+    };
     enum class Apply : uint8_t { Live, Restart };
 
     // Values of the enum options (GetInt returns them).
@@ -183,6 +187,17 @@ namespace settings
     enum class IntroVideos : int32_t
     {
         Original = 0, EaLogoOnly = 1, SkipEaHd = 2, SkipAll = 3
+    };
+    // Gamepad Prompts (game/fixes.cpp): the original icons, or an HD set
+    // (resources/hd_buttons/<set>).
+    enum class GamepadPrompts : int32_t
+    {
+        Original = 0,
+        Xbox360 = 1,
+        XboxOne = 2,
+        Ps3 = 3,
+        Ps4 = 4,
+        Switch = 5,
     };
     // Subtitles (game/fixes.cpp): Auto = stock behavior,
     // Force On = every movie, Force Off = tutorials only.

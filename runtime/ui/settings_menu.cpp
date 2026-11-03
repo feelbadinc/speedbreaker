@@ -869,7 +869,7 @@ namespace ui
                 RestartFixRow(o, [](double choice) { return choice != 0.0 ? "Black Edition enforced" : "Original game"; });
                 return;
             }
-            if (o.id == Id::IntroVideos)
+            if (o.id == Id::GamepadPrompts || o.id == Id::IntroVideos)
             {
                 RestartFixRow(o);
                 return;
