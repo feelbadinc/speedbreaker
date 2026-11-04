@@ -145,6 +145,7 @@ namespace settings
         FixTimebug,
         GamepadPrompts,
         HideEsrbDisclaimer,
+        InGameTraxSkip,
         IntroVideos,
         MainMenuQuit,
         Subtitles,

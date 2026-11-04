@@ -366,6 +366,128 @@ bool SubtitlesForceOff()
     return SubtitlesMode(settings::Subtitles::ForceOff);
 }
 
+// Skip EA Trax In-Game: Engage Event (d-pad up) plays the next track, in free
+// roam when there's no event to engage, in races always; the race standings
+// move to D-pad Down, unused in races. Uses the menu next-song function with
+// its "in the menus" check passed. Inspired by NFSMWExOpts (SkipTrackAnywhere).
+namespace
+{
+    constexpr uint32_t kNextSong = 0x822862A0;
+    constexpr uint32_t kNotifyChyron = 0x82203438;    // shows the EA Trax banner
+    constexpr uint32_t kTraxSlot = 0x150;             // the music object's slot ...
+    constexpr uint32_t kSlotSongs = 0x82A327C0;       // ... its song: slot * 24 here
+
+    // The banner screen waits 5s in game (ticks at 4000Hz) from its start time.
+    constexpr uint32_t kTraxScreenName = 0x8206E47C;  // "EA_Trax.fng"
+    constexpr uint32_t kFindScreen = 0x822D7528;
+    constexpr uint32_t kScreenStart = 0x2C;
+    constexpr uint32_t kTicksNow = 0x82A399AC;
+    constexpr uint32_t kBannerWaitTicks = 5 * 4000;
+
+    // Race status: nonzero +0x1A28 in a race (free roam: 0).
+    constexpr uint32_t kRaceStatus = 0x82A2CB18;
+    constexpr uint32_t kRaceStatusMode = 0x1A28;
+    constexpr uint32_t kActionEngage = 0x2E;
+    constexpr uint32_t kActionPadDown = 0x30;
+
+    std::atomic<uint32_t> s_traxSong = 0;
+    std::atomic<uint32_t> s_chyronBaseline = 0;
+    std::atomic<bool> s_chyronPending = false;
+
+    // What stops Engage Event in pursuits; d-pad up in race checks it too.
+    constexpr uint32_t kPursuitCounts[] = { 0x82A2D848, 0x82A2D86C };
+    constexpr uint32_t kEngageBlocked = 0x82C5A261;
+
+    uint32_t Load32(uint32_t address)
+    {
+        return *static_cast<const be<uint32_t>*>(g_memory.Translate(address));
+    }
+
+    bool InRace()
+    {
+        const uint32_t status = Load32(region::Addr(kRaceStatus));
+        return status && Load32(status + kRaceStatusMode) != 0;
+    }
+
+    bool InPursuit()
+    {
+        for (uint32_t count : kPursuitCounts)
+            if (int32_t(Load32(region::Addr(count))) > 0)
+                return true;
+        const void* blocked = g_memory.Translate(region::Addr(kEngageBlocked));
+        return *static_cast<const uint8_t*>(blocked) != 0;
+    }
+
+    thread_local bool t_skipTrax = false;
+    thread_local bool t_skippingTrax = false;
+}
+
+void EngageAvailabilityChecked(PPCRegister& r8)
+{
+    if (r8.u32 == 0)
+        t_skipTrax = true;
+}
+
+void HudActionDispatched(PPCRegister& r11)
+{
+    if ((r11.u32 != kActionEngage && r11.u32 != kActionPadDown) || !InRace()
+        || !settings::GetBool(settings::Id::InGameTraxSkip))
+        return;
+    if (r11.u32 == kActionPadDown)
+    {
+        r11.u64 = kActionEngage;  // the standings
+        return;
+    }
+    t_skipTrax = !InPursuit();
+    r11.u64 = 0;  // no action
+}
+
+void NextSongInMenus(PPCRegister& r11)
+{
+    if (t_skippingTrax)
+        r11.u64 = 1;
+}
+
+// HUD action handler (pause, Engage Event, d-pad left/right/down).
+SB_HOOK(sub_822A9798)
+{
+    t_skipTrax = false;
+    SB_ORIGINAL(sub_822A9798)(ctx, base);
+    const bool skip = t_skipTrax;
+    t_skipTrax = false;
+    if (!skip || !settings::GetBool(settings::Id::InGameTraxSkip))
+        return;
+    PPCContext call = ctx;
+    t_skippingTrax = true;
+    g_memory.FindFunction(region::Addr(kNextSong))(call, base);
+    t_skippingTrax = false;
+    s_chyronBaseline = s_traxSong.load();
+    s_chyronPending = true;
+}
+
+// The EA Trax music object update (r3: the object). Once the skip
+// happens, shows the banner at once, as LS in the menus does.
+SB_HOOK(sub_82202968)
+{
+    const uint32_t trax = ctx.r3.u32;
+    SB_ORIGINAL(sub_82202968)(ctx, base);
+    const uint32_t slot = PPC_LOAD_U32(trax + kTraxSlot);
+    const uint32_t songs = region::Addr(kSlotSongs);
+    const uint32_t song = slot < 64 ? PPC_LOAD_U32(songs + slot * 24) : ~0u;
+    s_traxSong = song;
+    if (!s_chyronPending || song == s_chyronBaseline)
+        return;
+    s_chyronPending = false;
+    PPCContext call = ctx;
+    call.r3.u64 = trax;
+    g_memory.FindFunction(region::Addr(kNotifyChyron))(call, base);
+    call.r3.u64 = region::Addr(kTraxScreenName);
+    g_memory.FindFunction(region::Addr(kFindScreen))(call, base);
+    const uint32_t now = PPC_LOAD_U32(region::Addr(kTicksNow));
+    if (const uint32_t screen = call.r3.u32)
+        PPC_STORE_U32(screen + kScreenStart, now - kBannerWaitTicks);
+}
+
 // Main Menu Quit: B on the main menu (unused there) opens the Yes/No
 // dialog with QUIT_GAME; Yes quits as Settings > Quit Game does.
 namespace

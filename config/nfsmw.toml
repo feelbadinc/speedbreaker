@@ -295,6 +295,25 @@ name = "SimClockStepped"
 address = 0x824682D0
 registers = ["f1"]
 
+# Skip EA Trax In-Game (runtime/game/fixes.cpp): HUD Engage Event action
+# (sub_822A9798) after the engage interface availability check (r8 = 0).
+[[midasm_hook]]
+name = "EngageAvailabilityChecked"
+address = 0x822A9BE8
+registers = ["r8"]
+
+# ...its switch on the action (r11); in races Up and Down trade places...
+[[midasm_hook]]
+name = "HudActionDispatched"
+address = 0x822A9944
+registers = ["r11"]
+
+# ...and the next-song function's (sub_822862A0) "in the menus" result (r11).
+[[midasm_hook]]
+name = "NextSongInMenus"
+address = 0x8228632C
+registers = ["r11"]
+
 # FE helpers (runtime/game/fe.cpp): the FE pad processor (sub_822FD3A8) where the
 # focused object has no response for a button; tells OnUnhandledButton's listeners.
 [[midasm_hook]]
