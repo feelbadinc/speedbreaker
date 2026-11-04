@@ -3,6 +3,7 @@
 // Settings > Fixes: community-sourced fixes ported from PC,
 // one option each (the [fixes] table).
 #include <stdafx.h>
+#include <game/fe.h>
 #include <game/fixes.h>
 #include <region/region.h>
 
@@ -20,6 +21,7 @@
 #include <kernel/function.h>
 #include <kernel/heap.h>
 #include <kernel/memory.h>
+#include <ui/quit_game.h>
 #include <user/settings.h>
 
 namespace
@@ -343,10 +345,56 @@ bool SubtitlesForceOff()
     return SubtitlesMode(settings::Subtitles::ForceOff);
 }
 
+// Main Menu Quit: B on the main menu (unused there) opens the Yes/No
+// dialog with QUIT_GAME; Yes quits as Settings > Quit Game does.
+namespace
+{
+    namespace fe = game::fe;
+
+    constexpr uint32_t kMainMenuScreen = 0x82079AAC;  // MainMenu's screen vtable
+    constexpr uint32_t kQuitYes = fe::Hash("SB_QUIT_GAME_YES");
+
+    uint32_t s_pressedScreen = 0;  // B was pressed in the main menu root
+
+    void NoteMainMenuBack(uint32_t message, uint32_t package)
+    {
+        if (message != fe::kPadBack)
+            return;
+        const uint32_t screen = fe::ScreenOf(package);
+        if (fe::IsScreen(screen, kMainMenuScreen))
+            s_pressedScreen = screen;
+    }
+}
+
+// The main menu's message handler (r3: the screen, r4: the message).
+SB_HOOK(sub_82237498)
+{
+    const uint32_t screen = ctx.r3.u32;
+    const uint32_t message = ctx.r4.u32;
+    SB_ORIGINAL(sub_82237498)(ctx, base);
+    if (screen == s_pressedScreen)
+    {
+        s_pressedScreen = 0;
+        fe::ShowYesNoDialog(ctx, base, screen,
+            fe::Hash("QUIT_GAME"), kQuitYes, fe::Hash("SB_QUIT_GAME_NO"));
+    }
+    else if (message == kQuitYes)
+    {
+        SDL_Event e{ .type = SDL_EVENT_QUIT };  // SDL stamps the time
+        if (SDL_PushEvent(&e))
+            fprintf(stderr, "[fixes] Main menu quit: quitting\n");
+    }
+}
+
 namespace fixes
 {
     void ApplyAtBoot()
     {
+        if (ui::quit::kOffered && settings::GetBool(settings::Id::MainMenuQuit))
+        {
+            fe::OnUnhandledButton(NoteMainMenuBack);
+            fprintf(stderr, "[fixes] Main menu quit: on\n");
+        }
         if (settings::GetBool(settings::Id::BlackEditionContent))
         {
             *static_cast<uint8_t*>(g_memory.Translate(region::Addr(kBlackEditionFlag))) = 1;

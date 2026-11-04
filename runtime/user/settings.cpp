@@ -1,7 +1,8 @@
 // SpeedBreaker runtime. GPL-3.0-or-later (see COPYING). See settings.h.
 #include "settings.h"
 #include <user/paths.h>
-#include <game/language.h>  // Settings > Game > Language: the languages
+#include <game/language.h>  // Language: kLanguages
+#include <ui/quit_game.h>  // Main Menu Quit: kOffered
 
 #include <algorithm>
 #include <array>
@@ -553,6 +554,10 @@ namespace settings
               .table = "fixes", .key = "intro_videos", .label = "Intro Videos",
               .description = "Choose which intro videos to play.",
               .env = "NFSMW_FIX_INTRO_VIDEOS", .defaultValue = double(int32_t(IntroVideos::Original)), .entries = kIntroVideosEntries },
+            { .id = Id::MainMenuQuit, .category = Category::Fixes, .type = Type::Bool, .apply = Apply::Restart, .hidden = !ui::quit::kOffered,
+              .table = "fixes", .key = "main_menu_quit", .label = "Main Menu Quit",
+              .description = "The original in-game UI doesn't let you quit. The fix lets you quit by pressing the B button on the top-level main menu, like the Q key does in the PC version.",
+              .env = "NFSMW_FIX_MAIN_MENU_QUIT", .defaultValue = 0 },
             { .id = Id::Subtitles, .category = Category::Fixes, .type = Type::Enum, .apply = Apply::Live,
               .table = "fixes", .key = "subtitles", .label = "Subtitles",
               .description = "The game automatically shows story movie subtitles only when its locale differs from the voiceover language. You can choose to force them on or off regardless.",

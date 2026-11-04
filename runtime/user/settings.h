@@ -145,6 +145,7 @@ namespace settings
         GamepadPrompts,
         HideEsrbDisclaimer,
         IntroVideos,
+        MainMenuQuit,
         Subtitles,
         // Advanced
         AsyncShaders,

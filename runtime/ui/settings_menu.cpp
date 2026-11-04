@@ -869,6 +869,11 @@ namespace ui
                 RestartFixRow(o, [](double choice) { return choice != 0.0 ? "Black Edition enforced" : "Original game"; });
                 return;
             }
+            if (o.id == Id::MainMenuQuit)
+            {
+                RestartFixRow(o, [](double choice) { return choice != 0.0 ? "Quit enabled" : "Original behavior"; });
+                return;
+            }
             if (o.id == Id::FixCopSpoilerDamage)
             {
                 RestartFixRow(o, [](double choice) { return choice != 0.0 ? "Bugfix" : "Original behavior"; });
