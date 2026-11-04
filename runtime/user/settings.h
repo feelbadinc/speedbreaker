@@ -149,6 +149,7 @@ namespace settings
         IntroVideos,
         MainMenuQuit,
         MirrorInChaseCams,
+        ShowHudOnLookback,
         Subtitles,
         // Advanced
         AsyncShaders,

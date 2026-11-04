@@ -911,6 +911,11 @@ namespace ui
                 ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Hidden." : "Shown.");
                 RowDescription(o);
             }
+            else if (o.id == Id::ShowHudOnLookback)
+            {
+                ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Shown." : "Hidden.");
+                RowDescription(o);
+            }
             else if (o.id == Id::InGameTraxSkip)
             {
                 ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Skip with D-pad Up" : "Original behavior.");

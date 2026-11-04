@@ -531,6 +531,7 @@ SB_HOOK(sub_82237498)
 
 // Mirror in Chase Cams: other releases show the mirror only in bumper and hood.
 // Hides the 3D mirror and the radar's mirror frame; idle when the mirror is off.
+// Reverse of NFSMWExOpts (EnableCameras, the rearview mirror addition).
 namespace
 {
     constexpr uint32_t kFeDatabase = 0x82A2C684;  // its +0x10: player 0 settings
@@ -554,10 +555,46 @@ SB_HOOK(sub_822AA818)
         ctx.r3.u64 = 0;
 }
 
-// Radar update (sub_82297840), r10 = the mirror option.
+// Show HUD on Look Back: the HUD stays up; the mirror keeps its own
+// lookback check. Ported from NFSMWExOpts (ShowHUDOnLookBack).
+namespace
+{
+    // View table, 112 bytes per view. View 1 is player 0 (the first
+    // player's) screen; its action list sits at +180 (view 1 + 68).
+    constexpr uint32_t kViews = 0x82A38070;
+    constexpr uint32_t kActionType = 12, kDriveAction = 1;  // handler type; 1 = driving
+    constexpr uint32_t kLookback = 177;                     // byte: holding lookback
+
+    bool ShowHudOnLookback() { return settings::GetBool(settings::Id::ShowHudOnLookback); }
+
+    // Player 0's drive action lookback flag, as the mirror check reads it.
+    bool Player0LookingBack(uint8_t* base)
+    {
+        const uint32_t head = region::Addr(kViews) + 180;
+        const uint32_t node = PPC_LOAD_U32(head);
+        if (node == head || node == 0)
+            return false;
+        const uint32_t action = node - 4;
+        return PPC_LOAD_U32(action + kActionType) == kDriveAction
+            && PPC_LOAD_U8(action + kLookback) != 0;
+    }
+}
+
+// HUD visibility builder (sub_822A9DC0), r3 = the view's lookback flag.
+void HudLookbackRead(PPCRegister& r3)
+{
+    if (ShowHudOnLookback())
+        r3.u64 = 0;
+}
+
+// Radar update (sub_82297840), r10 = the mirror option. Drops the mirror
+// frame when the mirror is hidden (chase cam, or looking back with the HUD up).
 void RadarMirrorOptionRead(PPCRegister& r10)
 {
-    if (r10.u32 != 0 && HideMirrorForCamera(g_memory.base))
+    if (r10.u32 == 0)
+        return;
+    if (HideMirrorForCamera(g_memory.base)
+        || (ShowHudOnLookback() && Player0LookingBack(g_memory.base)))
         r10.u64 = 0;
 }
 

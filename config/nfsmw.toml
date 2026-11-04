@@ -315,6 +315,13 @@ name = "RadarMirrorOptionRead"
 address = 0x8229786C
 registers = ["r10"]
 
+# Show HUD on Look Back (runtime/game/fixes.cpp): the HUD visibility
+# builder (sub_822A9DC0) right after it reads the lookback flag (r3).
+[[midasm_hook]]
+name = "HudLookbackRead"
+address = 0x822A9E48
+registers = ["r3"]
+
 # Skip EA Trax In-Game (runtime/game/fixes.cpp): HUD Engage Event action
 # (sub_822A9798) after the engage interface availability check (r8 = 0).
 [[midasm_hook]]
