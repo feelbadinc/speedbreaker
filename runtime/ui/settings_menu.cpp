@@ -869,6 +869,11 @@ namespace ui
                 RestartFixRow(o, [](double choice) { return choice != 0.0 ? "Black Edition enforced" : "Original game"; });
                 return;
             }
+            if (o.id == Id::FixCopSpoilerDamage)
+            {
+                RestartFixRow(o, [](double choice) { return choice != 0.0 ? "Bugfix" : "Original behavior"; });
+                return;
+            }
             if (o.id == Id::GamepadPrompts || o.id == Id::IntroVideos)
             {
                 RestartFixRow(o);
@@ -1059,7 +1064,7 @@ namespace ui
                 if (focusFirst)
                     s_focusFirstRow = false;
 
-                float footer = ImGui::GetTextLineHeightWithSpacing() * 3.0f + ImGui::GetFrameHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y * 3;
+                float footer = ImGui::GetTextLineHeightWithSpacing() * 4.0f + ImGui::GetFrameHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y * 3;
                 // A row's highlight reaches half an item spacing past the
                 // row (Selectable pads itself to meet its neighbours), and
                 // its focus outline a pixel or so further: so past the first
@@ -1145,7 +1150,7 @@ namespace ui
         ImGui::Separator();
         HelpLine();
 
-        // Buttons (the help above runs to one, two or three lines).
+        // Buttons (the help above runs to up to four lines).
         ButtonRowAtBottom();
         bool anyChanged = false;
         // The Wheel page's pedal axes are hidden options, and Reset page

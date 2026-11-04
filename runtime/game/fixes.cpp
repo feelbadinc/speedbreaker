@@ -28,6 +28,23 @@ namespace
     // only reads (0 in the base game). Ported from the Xenia patch by tuhana.
     constexpr uint32_t kBlackEditionFlag = 0x82A2CE06;
 
+    // Fix Cop Spoiler Damage: COPSPORTHENCH and COPSPORTGHOST spoilers never get
+    // damaged, as the damage zone map lacks their slot (4). Four of its duplicate
+    // entries become spoiler entries. Spotted in NFSMW Unlimiter, done from scratch.
+    constexpr uint32_t kDamageZoneMap = 0x828F9E88;
+    constexpr uint32_t kCopSpoilerSlot = 4;
+    struct ZoneSlotEntry
+    {
+        uint32_t index;  // a duplicate entry: zone, slot
+        uint32_t zone;
+    };
+    constexpr ZoneSlotEntry kCopSpoilerEntries[] = {
+        { 5, 1 },   // FRONT, BODY (also entry 2)        -> REAR
+        { 38, 6 },  // LEFT, slot 17 (also entry 30)     -> LREAR
+        { 39, 7 },  // LEFT, slot 18 (also entry 29)     -> RREAR
+        { 64, 8 },  // LFRONT, slot 18 (also entry 61)   -> TOP
+    };
+
     // Hide ESRB Disclaimer: the USA build splash screen (sub_822B8500) plays
     // "SHOW" on the "Game Experience May Change During Online Play" notice at
     // 0x822B8678; the other builds don't. "On" skips that call on the USA build.
@@ -334,6 +351,16 @@ namespace fixes
         {
             *static_cast<uint8_t*>(g_memory.Translate(region::Addr(kBlackEditionFlag))) = 1;
             fprintf(stderr, "[fixes] Black Edition content: on\n");
+        }
+        if (settings::GetBool(settings::Id::FixCopSpoilerDamage))
+        {
+            auto* map = static_cast<be<uint32_t>*>(g_memory.Translate(region::Addr(kDamageZoneMap)));
+            for (const ZoneSlotEntry& e : kCopSpoilerEntries)
+            {
+                map[e.index * 2] = e.zone;
+                map[e.index * 2 + 1] = kCopSpoilerSlot;
+            }
+            fprintf(stderr, "[fixes] Cop spoiler damage: on\n");
         }
     }
 }

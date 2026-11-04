@@ -141,6 +141,7 @@ namespace settings
         // Fixes (the [fixes] table): game/fixes.cpp
         BlackEditionContent,
         FixBustedScenes,
+        FixCopSpoilerDamage,
         GamepadPrompts,
         HideEsrbDisclaimer,
         IntroVideos,
