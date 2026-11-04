@@ -287,3 +287,9 @@ jump_address_on_true = 0x82287508
 name = "SubtitlesForceOff"
 address = 0x822874F4
 jump_address_on_true = 0x822874F8
+# FE helpers (runtime/game/fe.cpp): the FE pad processor (sub_822FD3A8) where the
+# focused object has no response for a button; tells OnUnhandledButton's listeners.
+[[midasm_hook]]
+name = "FeUnhandledButton"
+address = 0x822FDA58
+registers = ["r31", "r1"]
