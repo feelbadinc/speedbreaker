@@ -337,11 +337,11 @@ name = "EngageAvailabilityChecked"
 address = 0x822A9BE8
 registers = ["r8"]
 
-# ...its switch on the action (r11); in races Up and Down trade places...
+# ...its switch on the action (r11, HUD in r28); for standings Up and Down flip...
 [[midasm_hook]]
 name = "HudActionDispatched"
 address = 0x822A9944
-registers = ["r11"]
+registers = ["r11", "r28"]
 
 # ...and the next-song function's (sub_822862A0) "in the menus" result (r11).
 [[midasm_hook]]

@@ -565,7 +565,7 @@ namespace settings
               .env = "NFSMW_FIX_ESRB", .defaultValue = 0 },
             { .id = Id::InGameTraxSkip, .category = Category::Fixes, .type = Type::Bool, .apply = Apply::Live,
               .table = "fixes", .key = "in_game_trax_skip", .label = "Skip EA Trax™ In-Game",
-              .description = "The original game lets you skip music tracks only in the menus. The fix maps D-pad Up to do that in free roam and races (not pursuits), moving the race standings bind to D-pad Down.",
+              .description = "The original game lets you skip music tracks only in the menus. The fix maps D-pad Up to do that in free roam and races (not pursuits), moving the standings bind to D-pad Down.",
               .env = "NFSMW_FIX_TRAX_SKIP", .defaultValue = 0 },
             { .id = Id::IntroVideos, .category = Category::Fixes, .type = Type::Enum, .apply = Apply::Restart,
               .table = "fixes", .key = "intro_videos", .label = "Intro Videos",

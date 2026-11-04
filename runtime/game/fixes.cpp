@@ -423,8 +423,8 @@ bool SubtitlesForceOff()
 }
 
 // Skip EA Trax In-Game: Engage Event (d-pad up) plays the next track, in free
-// roam when there's no event to engage, in races always; the race standings
-// move to D-pad Down, unused in races. Uses the menu next-song function with
+// roam when there's no event to engage, in races always; the standings (race
+// or pursuit event) move to D-pad Down. Uses the menu next-song function with
 // its "in the menus" check passed. Inspired by NFSMWExOpts (SkipTrackAnywhere).
 namespace
 {
@@ -443,6 +443,7 @@ namespace
     // Race status: nonzero +0x1A28 in a race (free roam: 0).
     constexpr uint32_t kRaceStatus = 0x82A2CB18;
     constexpr uint32_t kRaceStatusMode = 0x1A28;
+    constexpr uint32_t kHudPursuitStandings = 0x2BC;  // Engage shows PostRace_Pursuit
     constexpr uint32_t kActionEngage = 0x2E;
     constexpr uint32_t kActionPadDown = 0x30;
 
@@ -484,10 +485,14 @@ void EngageAvailabilityChecked(PPCRegister& r8)
         t_skipTrax = true;
 }
 
-void HudActionDispatched(PPCRegister& r11)
+void HudActionDispatched(PPCRegister& r11, PPCRegister& r28)
 {
-    if ((r11.u32 != kActionEngage && r11.u32 != kActionPadDown) || !InRace()
+    if ((r11.u32 != kActionEngage && r11.u32 != kActionPadDown)
         || !settings::GetBool(settings::Id::InGameTraxSkip))
+        return;
+    const uint8_t* pursuitStandings = static_cast<const uint8_t*>(
+        g_memory.Translate(r28.u32 + kHudPursuitStandings));
+    if (!InRace() && *pursuitStandings == 0)
         return;
     if (r11.u32 == kActionPadDown)
     {
