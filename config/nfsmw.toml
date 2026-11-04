@@ -288,6 +288,14 @@ address = 0x82136580
 registers = ["r31", "r30"]
 jump_address_on_true = 0x82136770
 
+# Fix Pursuit Crashes (runtime/game/fixes.cpp): the roadblock cop car loop
+# (sub_820EDCC8) after it loads a car (r30); true skips to the next car.
+[[midasm_hook]]
+name = "RoadblockCarLoaded"
+address = 0x820EDFA0
+registers = ["r30"]
+jump_address_on_true = 0x820EDFF8
+
 # Subtitles (runtime/game/fixes.cpp): the checks in sub_822874C8. Force On
 # jumps from the language check to the "load the subtitles" path; Force Off
 # skips the language branch, leaving only the tutorial check.

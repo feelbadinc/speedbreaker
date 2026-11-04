@@ -120,6 +120,62 @@ bool BustedSceneBeforeHeat4Pick(PPCRegister& r31, PPCRegister& r30)
     return KeepBustedScene(r31.u32 < 4, r31, r30);
 }
 
+// Fix Pursuit Crashes: a roadblock is built from a list of cop cars, and
+// a car wrecked or despawned meanwhile (back to its abstract vtable)
+// gets called. Such cars are skiped. Ported from WFP (RoadblockCarHook).
+namespace
+{
+    constexpr uint32_t kPureCall = 0x826B87F8;      // _purecall
+    constexpr uint32_t kFeListeners = 0x82C6F08C;   // vector: begin +4, count +0xC
+}
+
+bool RoadblockCarLoaded(PPCRegister& r30)
+{
+    if (!settings::GetBool(settings::Id::FixPursuitCrashes))
+        return false;
+    uint8_t* base = g_memory.base;
+    const uint32_t car = r30.u32;
+    const uint32_t vtable = car ? PPC_LOAD_U32(car) : 0;
+    if (vtable && PPC_LOAD_U32(vtable + 0x80) != region::Addr(kPureCall))
+        return false;
+    fprintf(stderr, "[fixes] Pursuit crash: roadblock skips a destroyed cop car\n");
+    return true;
+}
+
+// Fix Pursuit Crashes: package-change listeners (pursuit HUD parts as well)
+// can leave the list while it's notified, and the loop ran past its end.
+// They're notified from a copy, each only while still listed.
+// Ported from WFP (NotifyListeners).
+SB_HOOK(sub_822AA780)
+{
+    if (!settings::GetBool(settings::Id::FixPursuitCrashes))
+    {
+        SB_ORIGINAL(sub_822AA780)(ctx, base);
+        return;
+    }
+    const uint32_t list = region::Addr(kFeListeners);
+    auto listed = [&](uint32_t listener) {
+        const uint32_t begin = PPC_LOAD_U32(list + 4), count = PPC_LOAD_U32(list + 0xC);
+        for (uint32_t i = 0; i < count; i++)
+            if (PPC_LOAD_U32(begin + i * 4) == listener)
+                return true;
+        return false;
+    };
+    std::vector<uint32_t> listeners(PPC_LOAD_U32(list + 0xC));
+    for (uint32_t i = 0; i < listeners.size(); i++)
+        listeners[i] = PPC_LOAD_U32(PPC_LOAD_U32(list + 4) + i * 4);
+    for (uint32_t listener : listeners)
+    {
+        if (!listener || !listed(listener))
+            continue;
+        PPCContext call = ctx;
+        call.r3.u64 = listener;
+        g_memory.FindFunction(PPC_LOAD_U32(PPC_LOAD_U32(listener) + 0xC))(call, base);
+    }
+    if (PPC_LOAD_U32(list + 0xC) < listeners.size())
+        fprintf(stderr, "[fixes] Pursuit crash: FE listener left while notified\n");
+}
+
 // Intro Videos skip (ported from WFP): a skipped movie file is reported
 // missing; the game then ends it itself, as it does for any missing movie.
 namespace
