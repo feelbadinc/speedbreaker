@@ -422,6 +422,13 @@ bool SubtitlesForceOff()
     return SubtitlesMode(settings::Subtitles::ForceOff);
 }
 
+// Hide Xbox Live Entry: the main menu builder (sub_82237900) skips
+// the Xbox Live row. Inspired by NFSMWExOpts (ShowOnline).
+bool HideXboxLiveEntry()
+{
+    return settings::GetBool(settings::Id::HideXboxLiveEntry);
+}
+
 // Skip EA Trax In-Game: Engage Event (d-pad up) plays the next track, in free
 // roam when there's no event to engage, in races always; the standings (race
 // or pursuit event) move to D-pad Down. Uses the menu next-song function with

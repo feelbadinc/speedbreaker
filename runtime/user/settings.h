@@ -146,6 +146,7 @@ namespace settings
         FixTimebug,
         GamepadPrompts,
         HideEsrbDisclaimer,
+        HideXboxLiveEntry,
         InGameTraxSkip,
         IntroVideos,
         MainMenuQuit,

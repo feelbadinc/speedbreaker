@@ -309,6 +309,13 @@ name = "SubtitlesForceOff"
 address = 0x822874F4
 jump_address_on_true = 0x822874F8
 
+# Hide Xbox Live Entry (runtime/game/fixes.cpp): the main menu builder
+# (sub_82237900) skips building and adding the Xbox Live row.
+[[midasm_hook]]
+name = "HideXboxLiveEntry"
+address = 0x82237D54
+jump_address_on_true = 0x82237DE0
+
 # Fix Timebug (runtime/game/fixes.cpp): the sim step (sub_82468148) right
 # after it stores the clock plus the step (f1), before the step tasks run.
 [[midasm_hook]]
