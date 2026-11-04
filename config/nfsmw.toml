@@ -287,6 +287,14 @@ jump_address_on_true = 0x82287508
 name = "SubtitlesForceOff"
 address = 0x822874F4
 jump_address_on_true = 0x822874F8
+
+# Fix Timebug (runtime/game/fixes.cpp): the sim step (sub_82468148) right
+# after it stores the clock plus the step (f1), before the step tasks run.
+[[midasm_hook]]
+name = "SimClockStepped"
+address = 0x824682D0
+registers = ["f1"]
+
 # FE helpers (runtime/game/fe.cpp): the FE pad processor (sub_822FD3A8) where the
 # focused object has no response for a button; tells OnUnhandledButton's listeners.
 [[midasm_hook]]

@@ -47,6 +47,10 @@ namespace
         { 64, 8 },  // LFRONT, slot 18 (also entry 61)   -> TOP
     };
 
+    // Fix Timebug: the sim clock (Sim::GetTime), a float each step is added to.
+    constexpr uint32_t kSimClock = 0x82A153B8;
+    bool s_fixTimebug = false;
+
     // Hide ESRB Disclaimer: the USA build splash screen (sub_822B8500) plays
     // "SHOW" on the "Game Experience May Change During Online Play" notice at
     // 0x822B8678; the other builds don't. "On" skips that call on the USA build.
@@ -69,6 +73,23 @@ SB_HOOK(sub_8227FF60)
     if (HideEsrbNotice(ctx))
         return;
     SB_ORIGINAL(sub_8227FF60)(ctx, base);
+}
+
+// Fix Timebug: as the float sim clock grows, each 1/60 s step added to it
+// is rounded, so timers drift (5% faster after 5 hours). It's counted in
+// double and stored rounded instead. Ported from WFP (OnSimStep).
+void SimClockStepped(PPCRegister& f1)
+{
+    if (!s_fixTimebug)
+        return;
+    static double exact = 0.0;
+    static float written = 0.0f;
+    auto& clock = *static_cast<be<float>*>(g_memory.Translate(region::Addr(kSimClock)));
+
+    // Not our last value plus the step: the game reset the clock, count on from it.
+    exact = clock == written + float(f1.f64) ? exact + f1.f64 : double(clock);
+    written = float(exact);
+    clock = written;
 }
 
 // Fix Busted Scenes: the arrest-scene chooser (sub_82135F98) falls through from
@@ -409,6 +430,11 @@ namespace fixes
                 map[e.index * 2 + 1] = kCopSpoilerSlot;
             }
             fprintf(stderr, "[fixes] Cop spoiler damage: on\n");
+        }
+        if (settings::GetBool(settings::Id::FixTimebug))
+        {
+            s_fixTimebug = true;
+            fprintf(stderr, "[fixes] Timebug: on\n");
         }
     }
 }

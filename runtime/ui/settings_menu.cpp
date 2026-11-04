@@ -874,7 +874,7 @@ namespace ui
                 RestartFixRow(o, [](double choice) { return choice != 0.0 ? "Quit enabled" : "Original behavior"; });
                 return;
             }
-            if (o.id == Id::FixCopSpoilerDamage)
+            if (o.id == Id::FixCopSpoilerDamage || o.id == Id::FixTimebug)
             {
                 RestartFixRow(o, [](double choice) { return choice != 0.0 ? "Bugfix" : "Original behavior"; });
                 return;

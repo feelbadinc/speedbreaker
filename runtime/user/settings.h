@@ -142,6 +142,7 @@ namespace settings
         BlackEditionContent,
         FixBustedScenes,
         FixCopSpoilerDamage,
+        FixTimebug,
         GamepadPrompts,
         HideEsrbDisclaimer,
         IntroVideos,
