@@ -529,6 +529,38 @@ SB_HOOK(sub_82237498)
     }
 }
 
+// Mirror in Chase Cams: other releases show the mirror only in bumper and hood.
+// Hides the 3D mirror and the radar's mirror frame; idle when the mirror is off.
+namespace
+{
+    constexpr uint32_t kFeDatabase = 0x82A2C684;  // its +0x10: player 0 settings
+    constexpr uint32_t kSettingsCamera = 0x94;    // 0 bumper, 1 hood
+
+    bool HideMirrorForCamera(uint8_t* base)
+    {
+        if (settings::MirrorInChaseCams(settings::GetInt(settings::Id::MirrorInChaseCams))
+            != settings::MirrorInChaseCams::Hidden)
+            return false;
+        const uint32_t db = PPC_LOAD_U32(region::Addr(kFeDatabase));
+        const uint32_t player = db ? PPC_LOAD_U32(db + 0x10) : 0;
+        return player && PPC_LOAD_U32(player + kSettingsCamera) >= 2;
+    }
+}
+
+SB_HOOK(sub_822AA818)
+{
+    SB_ORIGINAL(sub_822AA818)(ctx, base);
+    if (ctx.r3.u32 != 0 && HideMirrorForCamera(base))
+        ctx.r3.u64 = 0;
+}
+
+// Radar update (sub_82297840), r10 = the mirror option.
+void RadarMirrorOptionRead(PPCRegister& r10)
+{
+    if (r10.u32 != 0 && HideMirrorForCamera(g_memory.base))
+        r10.u64 = 0;
+}
+
 namespace fixes
 {
     void ApplyAtBoot()

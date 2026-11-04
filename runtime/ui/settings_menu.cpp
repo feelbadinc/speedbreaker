@@ -921,7 +921,7 @@ namespace ui
                 ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Bugfix." : "Original behavior.");
                 RowDescription(o);
             }
-            else if (o.id == Id::Subtitles)
+            else if (o.id == Id::Subtitles || o.id == Id::MirrorInChaseCams)
             {
                 ImGui::TextDisabled("Current: %s.", ValueText(o, settings::GetValue(o.id)).c_str());
                 RowDescription(o);

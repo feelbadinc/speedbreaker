@@ -184,6 +184,11 @@ namespace settings
             { int32_t(Subtitles::ForceOff), "force_off", "Force Off" },
         };
 
+        constexpr EnumEntry kMirrorInChaseCamsEntries[] = {
+            { int32_t(MirrorInChaseCams::Shown), "shown", "Shown" },
+            { int32_t(MirrorInChaseCams::Hidden), "hidden", "Hidden" },
+        };
+
         constexpr EnumEntry kAspectEntries[] = {
             { int32_t(AspectMode::Auto), "auto", "Fill Screen" },
             { int32_t(AspectMode::Widescreen), "16:9", "16:9" },
@@ -566,6 +571,10 @@ namespace settings
               .table = "fixes", .key = "main_menu_quit", .label = "Main Menu Quit",
               .description = "The original in-game UI doesn't let you quit. The fix lets you quit by pressing the B button on the top-level main menu, like the Q key does in the PC version.",
               .env = "NFSMW_FIX_MAIN_MENU_QUIT", .defaultValue = 0 },
+            { .id = Id::MirrorInChaseCams, .category = Category::Fixes, .type = Type::Enum, .apply = Apply::Live,
+              .table = "fixes", .key = "mirror_in_chase_cams", .label = "Mirror in Chase Cams",
+              .description = "The Xbox 360 version shows the rearview mirror in every camera. You may choose to hide it in chase cameras, like on other platforms.",
+              .env = "NFSMW_FIX_MIRROR_CHASE_CAMS", .defaultValue = double(int32_t(MirrorInChaseCams::Shown)), .entries = kMirrorInChaseCamsEntries },
             { .id = Id::Subtitles, .category = Category::Fixes, .type = Type::Enum, .apply = Apply::Live,
               .table = "fixes", .key = "subtitles", .label = "Subtitles",
               .description = "The game automatically shows story movie subtitles only when its locale differs from the voiceover language. You can choose to force them on or off regardless.",

@@ -308,6 +308,13 @@ name = "SimClockStepped"
 address = 0x824682D0
 registers = ["f1"]
 
+# Mirror in Chase Cams (runtime/game/fixes.cpp): the radar update
+# (sub_82297840) right after it loads the mirror option (r10).
+[[midasm_hook]]
+name = "RadarMirrorOptionRead"
+address = 0x8229786C
+registers = ["r10"]
+
 # Skip EA Trax In-Game (runtime/game/fixes.cpp): HUD Engage Event action
 # (sub_822A9798) after the engage interface availability check (r8 = 0).
 [[midasm_hook]]
