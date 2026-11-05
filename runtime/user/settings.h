@@ -155,6 +155,7 @@ namespace settings
         LongerAliasNames,
         MainMenuQuit,
         MirrorInChaseCams,
+        ModernGamepadLayouts,
         ShowHudOnLookback,
         Subtitles,
         WorldMapAnywhere,

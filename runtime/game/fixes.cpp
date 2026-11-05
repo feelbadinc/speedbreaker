@@ -511,7 +511,7 @@ void LeaderboardCountdown(PPCRegister& r26)
         PPC_STORE_U32(r26.u32 + 552, uint32_t(std::max(1, counter - ticks + 1)));
 }
 
-// Skip EA Trax In-Game: Engage Event (d-pad up) plays the next track, in free
+// Skip EA Trax In-Game: Engage Event (D-pad up) plays the next track, in free
 // roam when there's no event to engage, in races always; the standings (race
 // or pursuit event) move to D-pad Down. Uses the menu next-song function with
 // its "in the menus" check passed. Inspired by NFSMWExOpts (SkipTrackAnywhere).
@@ -535,12 +535,13 @@ namespace
     constexpr uint32_t kHudPursuitStandings = 0x2BC;  // Engage shows PostRace_Pursuit
     constexpr uint32_t kActionEngage = 0x2E;
     constexpr uint32_t kActionPadDown = 0x30;
+    constexpr uint32_t kActionNextSong = 0x33;
 
     std::atomic<uint32_t> s_traxSong = 0;
     std::atomic<uint32_t> s_chyronBaseline = 0;
     std::atomic<bool> s_chyronPending = false;
 
-    // What stops Engage Event in pursuits; d-pad up in race checks it too.
+    // What stops Engage Event in pursuits; D-pad up in race checks it too.
     constexpr uint32_t kPursuitCounts[] = { 0x82A2D848, 0x82A2D86C };
     constexpr uint32_t kEngageBlocked = 0x82C5A261;
 
@@ -566,18 +567,29 @@ namespace
 
     thread_local bool t_skipTrax = false;
     thread_local bool t_skippingTrax = false;
+    thread_local bool t_traxOnRb = false;  // the HUD skips on RB, the D-pad stays
+
+    bool HudSkipsTraxOnRb(uint32_t hud);  // Modern Gamepad Layouts
 }
 
 void EngageAvailabilityChecked(PPCRegister& r8)
 {
-    if (r8.u32 == 0)
+    if (r8.u32 == 0 && !t_traxOnRb)
         t_skipTrax = true;
 }
 
 void HudActionDispatched(PPCRegister& r11, PPCRegister& r28)
 {
-    if ((r11.u32 != kActionEngage && r11.u32 != kActionPadDown)
-        || !settings::GetBool(settings::Id::InGameTraxSkip))
+    if (!settings::GetBool(settings::Id::InGameTraxSkip))
+        return;
+    t_traxOnRb = HudSkipsTraxOnRb(r28.u32);
+    if (r11.u32 == kActionNextSong && t_traxOnRb)
+    {
+        t_skipTrax = !InPursuit();
+        r11.u64 = 0;  // no action
+        return;
+    }
+    if ((r11.u32 != kActionEngage && r11.u32 != kActionPadDown) || t_traxOnRb)
         return;
     const uint8_t* pursuitStandings = static_cast<const uint8_t*>(
         g_memory.Translate(r28.u32 + kHudPursuitStandings));
@@ -598,10 +610,11 @@ void NextSongInMenus(PPCRegister& r11)
         r11.u64 = 1;
 }
 
-// HUD action handler (pause, Engage Event, d-pad left/right/down).
+// HUD action handler (pause, Engage Event, D-pad left/right/down).
 SB_HOOK(sub_822A9798)
 {
     t_skipTrax = false;
+    t_traxOnRb = false;
     SB_ORIGINAL(sub_822A9798)(ctx, base);
     const bool skip = t_skipTrax;
     t_skipTrax = false;
@@ -748,6 +761,367 @@ void RadarMirrorOptionRead(PPCRegister& r10)
         r10.u64 = 0;
 }
 
+// Modern Gamepad Layouts: all 10 control types get modernized layouts,
+// steering with the left stick; the D-pad keeps the map and messages.
+// The bindings are attrib data (class "controller"), swapped in only
+// while the game builds a type's input map, and in the labels shown.
+// With Skip EA Trax In-Game on, types 1, 2, 6, and 7 skip on RB and
+// the D-pad reverts to its original behavior.
+namespace
+{
+    enum Input : uint8_t
+    {
+        A, B, X, Y, LB, RB, LT, RT, RsUp, RsDown, RsClick, LsLeft, LsRight,
+        WheelLeft, WheelRight, DpadUp, DpadDown, DpadLeft, DpadRight, kInputs
+    };
+
+    struct InputRecord
+    {
+        uint32_t hash[3];  // the input's ids in the attrib record
+        const char* name;  // its name there ("Black" is LB, "White" RB)
+    };
+    constexpr InputRecord kInputRecords[kInputs] = {
+        { { 0x61E1B0BB, 0x80F12F70, 0x48FC13CF }, "A" },
+        { { 0x2B5A6A57, 0xADF315F3, 0xB2ED475C }, "B" },
+        { { 0x2CDDC4B6, 0xFB6A597B, 0xE1338132 }, "X" },
+        { { 0x9C3A7275, 0x10D0A3BD, 0x4D917D0F }, "Y" },
+        { { 0xFCA03E74, 0x510FD477, 0xB2AE322C }, "Black" },
+        { { 0xB0267E91, 0x93C47837, 0x30BF88B3 }, "White" },
+        { { 0xD163F591, 0xE00E5C1A, 0xE9195336 }, "L" },
+        { { 0x11B730F9, 0xBEE9739B, 0xB62B540F }, "R" },
+        { { 0x67C2F1B5, 0x73B1CF5C, 0x7C1D0B82 }, "ARY_U" },
+        { { 0x0CF006D1, 0x01109F79, 0x41A218C3 }, "ARY_D" },
+        { { 0xDA6456EF, 0xE751C392, 0xAFA0BD9E }, "RThumb" },
+        { { 0xD9F3C916, 0xBE968E6C, 0xEB417D4D }, "ALX_L" },
+        { { 0x5D2463C5, 0x3625647C, 0x8B9108C0 }, "ALX_R" },
+        { { 0x3EDDC237, 0x4FDEE699, 0x211AB403 }, "W_LEFT" },
+        { { 0x49CCDB49, 0x929BDA0B, 0x428C7C6A }, "W_RIGHT" },
+        { { 0x076010AA, 0x264C6514, 0x5AC3F396 }, "DUp" },
+        { { 0xE7367324, 0x3C719305, 0x3FB3C47C }, "DDown" },
+        { { 0xA7041223, 0x59B11FE6, 0x3859BBB1 }, "DLeft" },
+        { { 0x71A5F5D0, 0x058A2BD5, 0x574BE632 }, "DRight" },
+    };
+
+    // An action: its attrib key, and the flag /
+    // deadzone the original types use for it.
+    struct Action
+    {
+        uint32_t key;
+        uint32_t flag;
+        float deadzone;
+    };
+    constexpr Action kGas{ 0x06525329, 0, 0.0f }, kBrake{ 0x82A9B7D8, 0, 0.0f },
+        kNitrous{ 0xABC46A0F, 0, 0.0f }, kEbrake{ 0x1AAF2C13, 0, 0.0f },
+        kSpeedbreaker{ 0x98D605B8, 1, 0.0f }, kLookbackAction{ 0x8DC18FAF, 0, 0.3f },
+        kCamera{ 0x2F478795, 1, 0.3f }, kShiftUp{ 0x06DBD3C3, 1, 0.0f },
+        kShiftDown{ 0x50638735, 1, 0.0f },
+        kSteerLeft{ 0x37B1B6A8, 0, 0.2f }, kSteerRight{ 0xB3A37C41, 0, 0.2f },
+        kTurnLeft{ 0x77570455, 1, 0.0f }, kTurnRight{ 0xFA647F8F, 1, 0.0f },
+        kHudEngage{ 0xBBAB56EF, 1, 0.0f }, kHudPadLeft{ 0xE2D51BDC, 1, 0.0f },
+        kHudPadRight{ 0x713C8F5C, 1, 0.0f }, kHudPadDown{ 0x112B5D2D, 1, 0.0f },
+        kHudNextSong{ 0x5A1E0EB7, 1, 0.0f },
+        kStickLookback{ 0x8DC18FAF, 0, 0.5f };  // RS down: clear of RS click
+
+    struct Record
+    {
+        Input input = A;
+        uint32_t flag = 0;
+        float deadzone = 0.0f;
+    };
+
+    struct Binding
+    {
+        uint32_t action = 0;
+        Record records[2];
+        uint8_t count = 0;
+    };
+    constexpr Record Rec(Action a, Input i) { return { i, a.flag, a.deadzone }; }
+    constexpr Binding Bind(Action a, Input i) { return { a.key, { Rec(a, i) }, 1 }; }
+    constexpr Binding Bind(Action a, Input i, Input j) { return { a.key, { Rec(a, i), Rec(a, j) }, 2 }; }
+    // Wheel records: what the stick types of configs 2-4 have besides the stick.
+    constexpr Binding Wheel(Action a, Input stick, Input wheel)
+    {
+        return { a.key, { Rec(a, stick), { wheel, a.flag, 0.0f } }, 2 };
+    }
+
+    // An attrib collection and the actions it gets instead.
+    constexpr size_t kMaxBindings = 13;
+    struct Override
+    {
+        uint32_t collection = 0;
+        Binding bindings[kMaxBindings];
+        size_t count = 0;
+    };
+    constexpr Override Make(uint32_t collection, std::initializer_list<Binding> list)
+    {
+        Override o{ collection };
+        for (const Binding& b : list)
+            o.bindings[o.count++] = b;
+        return o;
+    }
+    // Steering: types 1-5 keep theirs; 6-10 steer with the D-pad originally
+    // and get the stick (8-10 plus wheel records).
+    enum Steer : uint8_t { KeepSteer, Stick, StickWheel };
+    struct SteerAction
+    {
+        Action action;
+        Input stick, wheel;
+    };
+    constexpr SteerAction kSteerActions[] = { { kSteerLeft, LsLeft, WheelLeft },
+        { kSteerRight, LsRight, WheelRight }, { kTurnLeft, LsLeft, WheelLeft },
+        { kTurnRight, LsRight, WheelRight } };
+
+    // A control type: gas RT, brake LT, nitrous A, and the rest.
+    constexpr Override Type(uint32_t collection, Steer steer, Binding ebrake, Input speedbreaker,
+        Input lookback, Input camera, Input shiftUp, Input shiftDown)
+    {
+        Override o = Make(collection, { Bind(kGas, RT), Bind(kBrake, LT), Bind(kNitrous, A), ebrake,
+            Bind(kSpeedbreaker, speedbreaker),
+            Bind(lookback == RsDown ? kStickLookback : kLookbackAction, lookback),
+            Bind(kCamera, camera), Bind(kShiftUp, shiftUp), Bind(kShiftDown, shiftDown) });
+        if (steer != KeepSteer)
+            for (const SteerAction& s : kSteerActions)
+                o.bindings[o.count++] = steer == StickWheel
+                    ? Wheel(s.action, s.stick, s.wheel) : Bind(s.action, s.stick);
+        return o;
+    }
+
+    // kHudMap: the stick types' HUD map (D-pad: map, messages).
+    // kHudMapTraxOnRb: the D-pad types' one, unused by stick
+    // types, rebuilt as the same plus next song on RB.
+    constexpr uint32_t kHudMap = 0x26190AC6;
+    constexpr uint32_t kHudMapTraxOnRb = 0xCAAE372F;
+
+    constexpr Override kOverrides[] = {
+        // Steering, e-brake, speedbreaker, look back, camera, shift up, shift down.
+        Type(0xAD37E45A, KeepSteer,  Bind(kEbrake, X),    B,  LB,     Y,       RsUp, RsDown),  // 1
+        Type(0x58341EC2, KeepSteer,  Bind(kEbrake, B),    X,  LB,     Y,       RsUp, RsDown),  // 2
+        Type(0x58CB8BB8, KeepSteer,  Bind(kEbrake, X, B), RB, LB,     Y,       RsUp, RsDown),  // 3
+        Type(0xCFA829CC, KeepSteer,  Bind(kEbrake, X, B), LB, RB,     Y,       RsUp, RsDown),  // 4
+        Type(0x2BC75215, KeepSteer,  Bind(kEbrake, X, B), Y,  LB,     RB,      RsUp, RsDown),  // 5
+        Type(0x73928352, Stick,      Bind(kEbrake, X),    LB, RsDown, RsClick, Y,    B),       // 6
+        Type(0x35229E26, Stick,      Bind(kEbrake, B),    LB, RsDown, RsClick, Y,    X),       // 7
+        Type(0xEAA1761D, StickWheel, Bind(kEbrake, X),    RB, LB,     RsClick, Y,    B),       // 8
+        Type(0xE7901ECC, StickWheel, Bind(kEbrake, B),    RB, LB,     RsClick, Y,    X),       // 9
+        Type(0x80D3785A, StickWheel, Bind(kEbrake, RB),   B,  LB,     RsClick, Y,    X),       // 10
+        Make(kHudMapTraxOnRb, { Bind(kHudEngage, DpadUp), Bind(kHudPadLeft, DpadLeft),
+            Bind(kHudPadRight, DpadRight), Bind(kHudPadDown, DpadDown), Bind(kHudNextSong, RB) }),
+    };
+    constexpr size_t kOverrideCount = std::size(kOverrides);
+
+    // Labels (LABELS.BIN) of the controls screen's 17 slots.
+    enum Slot : uint8_t
+    {
+        SlotLT, SlotLS, SlotRT, SlotY, SlotB, SlotA, SlotX,
+        SlotDpadUp, SlotDpadLeft, SlotDpadRight, SlotDpadDown,
+        SlotLB, SlotRB, SlotBack, SlotRsUp, SlotRsDown, SlotStart, kSlots
+    };
+
+    // Type labels: the face buttons, bumpers and RS; triggers and the rest stay.
+    struct TypeLabels
+    {
+        uint32_t shownAs;  // config whose RS icons the screen shows (1, 3: RS click)
+        const char* y, * b, * a, * x, * lb, * rb, * rsUp, * rsDown;
+    };
+    constexpr const char* kPov = "BUTTON_CHANGE_POV", * kEb = "BUTTON_EBRAKE",
+        * kNos = "BUTTON_NITROUS", * kSb = "BUTTON_GAMEBREAKER", * kLook = "BUTTON_LOOKBACK",
+        * kUp = "BUTTON_SHIFTUP", * kDown = "BUTTON_SHIFTDOWN", * kNone = "BUTTON_NOT_USED";
+    constexpr TypeLabels kTypeLabels[10] = {
+        { 0, kPov, kSb, kNos, kEb, kLook, kNone, kUp, kDown },
+        { 0, kPov, kEb, kNos, kSb, kLook, kNone, kUp, kDown },
+        { 2, kPov, kEb, kNos, kEb, kLook, kSb, kUp, kDown },
+        { 2, kPov, kEb, kNos, kEb, kSb, kLook, kUp, kDown },
+        { 4, kSb, kEb, kNos, kEb, kLook, kPov, kUp, kDown },
+        { 1, kUp, kDown, kNos, kEb, kSb, kNone, kPov, kLook },
+        { 1, kUp, kEb, kNos, kDown, kSb, kNone, kPov, kLook },
+        { 3, kUp, kDown, kNos, kEb, kLook, kSb, kPov, kNone },
+        { 3, kUp, kEb, kNos, kDown, kLook, kSb, kPov, kNone },
+        { 1, kUp, kSb, kNos, kDown, kLook, kEb, kPov, kNone },
+    };
+
+    constexpr uint32_t kLabelTable = 0x828FFBB0;    // 17 slots x 5 configs
+    constexpr uint32_t kControlsPlayer = 0x82A2C518;  // the controls screen's player
+    // The HUD map builds (sub_822A9798, sub_82478F50) from HUD key table;
+    // r9 = the player's config * 2 there.
+    constexpr uint32_t kHudMapBuildReturns[] = { 0x822A98C4, 0x82479058 };
+    constexpr uint32_t kHudInputMap = 48;  // the HUD's input map; +628 its key
+    constexpr uint32_t kInputMapKey = 628;
+
+    // Guest copies of the attrib nodes the build reads instead (+4 data, +0xB flags).
+    uint32_t s_nodes[kOverrideCount][kMaxBindings];
+    bool s_modernLayouts = false;  // set at boot (Restart)
+    thread_local int t_building = -1;
+
+    uint32_t GuestAlloc(size_t size)
+    {
+        void* p = g_userHeap.Alloc(size);
+        memset(p, 0, size);
+        return g_memory.MapVirtual(p);
+    }
+
+    // The arrays and nodes, built once: {u16 count, u16 count, u16 record
+    // size, u16 0} and the records {3 ids, name, flag, deadzone, 0, 0}.
+    void BuildOverrideData(uint8_t* base)
+    {
+        if (s_nodes[0][0])
+            return;
+        constexpr uint32_t kRecordSize = 0x20;
+        uint32_t names[kInputs];
+        for (int i = 0; i < kInputs; i++)
+        {
+            const size_t len = strlen(kInputRecords[i].name) + 1;
+            names[i] = GuestAlloc(len);
+            memcpy(base + names[i], kInputRecords[i].name, len);
+        }
+        for (size_t o = 0; o < kOverrideCount; o++)
+            for (size_t b = 0; b < kOverrides[o].count; b++)
+            {
+                const Binding& bind = kOverrides[o].bindings[b];
+                const uint32_t array = GuestAlloc(8 + kRecordSize * bind.count);
+                PPC_STORE_U16(array, uint16_t(bind.count));
+                PPC_STORE_U16(array + 2, uint16_t(bind.count));
+                PPC_STORE_U16(array + 4, uint16_t(kRecordSize));
+                for (int i = 0; i < bind.count; i++)
+                {
+                    const Record& rec = bind.records[i];
+                    const uint32_t r = array + 8 + kRecordSize * i;
+                    for (int h = 0; h < 3; h++)
+                        PPC_STORE_U32(r + 4 * h, kInputRecords[rec.input].hash[h]);
+                    PPC_STORE_U32(r + 12, names[rec.input]);
+                    PPC_STORE_U32(r + 16, rec.flag);
+                    PPC_STORE_U32(r + 20, std::bit_cast<uint32_t>(rec.deadzone));
+                }
+                s_nodes[o][b] = GuestAlloc(16);
+                PPC_STORE_U32(s_nodes[o][b] + 4, array);
+            }
+    }
+
+    int OverrideForCollection(uint32_t key)
+    {
+        for (size_t o = 0; o < kOverrideCount; o++)
+            if (kOverrides[o].collection == key)
+                return int(o);
+        return -1;
+    }
+
+    // Confibs 0 and 1 are types 1, 2, 6 and 7.
+    bool TraxOnRb(uint32_t config)
+    {
+        return config <= 1 && settings::GetBool(settings::Id::InGameTraxSkip);
+    }
+
+    bool HudSkipsTraxOnRb(uint32_t hud)
+    {
+        return s_modernLayouts
+            && Load32(hud + kHudInputMap + kInputMapKey) == kHudMapTraxOnRb;
+    }
+
+    // The player's joystick settings: +7 stick steering, +8 config (0-4).
+    uint32_t JoystickSettings(uint8_t* base, uint32_t player)
+    {
+        const uint32_t db = PPC_LOAD_U32(region::Addr(kFeDatabase));
+        const uint32_t players = db ? PPC_LOAD_U32(db + 0x10) : 0;
+        return players ? players + 20 * player + 136 : 0;
+    }
+
+    // Runs a controls picture label fill with the type's labels in the
+    // table, shown as the stick picture of the config with its RS icons.
+    template <typename Fill>
+    void WithTypeLabels(uint8_t* base, uint32_t player, Fill fill)
+    {
+        const uint32_t js = s_modernLayouts ? JoystickSettings(base, player) : 0;
+        const uint32_t config = js ? PPC_LOAD_U32(js + 8) : ~0u;
+        if (config > 4)
+            return fill();
+        const uint8_t stick = PPC_LOAD_U8(js + 7);
+        const TypeLabels& t = kTypeLabels[stick ? config : config + 5];
+        const char* labels[kSlots] = {};
+        labels[SlotY] = t.y;
+        labels[SlotB] = t.b;
+        labels[SlotA] = t.a;
+        labels[SlotX] = t.x;
+        labels[SlotLB] = t.lb;
+        labels[SlotRB] = t.rb;
+        labels[SlotRsUp] = t.rsUp;
+        labels[SlotRsDown] = t.rsDown;
+        labels[SlotLT] = "BUTTON_BRAKE_REVERSE";
+        labels[SlotRT] = "BUTTON_THROTTLE";
+        if (TraxOnRb(config))
+            labels[SlotRB] = "OPT_EATRAX";
+
+        const uint32_t table = region::Addr(kLabelTable);
+        const uint32_t column = table + 4 * t.shownAs;
+        uint32_t saved[kSlots];
+        for (int s = 0; s < kSlots; s++)
+        {
+            const uint32_t at = column + 20 * s;
+            saved[s] = PPC_LOAD_U32(at);
+            PPC_STORE_U32(at, labels[s] ? fe::Hash(labels[s]) : PPC_LOAD_U32(table + 20 * s + 4 * config));
+        }
+        PPC_STORE_U8(js + 7, 1);  // I'm a teapot
+        PPC_STORE_U32(js + 8, t.shownAs);
+        fill();
+        PPC_STORE_U8(js + 7, stick);
+        PPC_STORE_U32(js + 8, config);
+        for (int s = 0; s < kSlots; s++)
+            PPC_STORE_U32(column + 20 * s, saved[s]);
+    }
+}
+
+// Builds an input map from a controller collection (r5: its key).
+SB_HOOK(sub_8239D8F0)
+{
+    if (s_modernLayouts)
+        for (uint32_t ret : kHudMapBuildReturns)
+            if (ctx.lr == region::Addr(ret))
+                ctx.r5.u64 = TraxOnRb(ctx.r9.u32 / 2) ? kHudMapTraxOnRb : kHudMap;
+    t_building = s_modernLayouts ? OverrideForCollection(ctx.r5.u32) : -1;
+    if (t_building >= 0)
+        BuildOverrideData(base);  // here: the guest heap isn't up at boot
+    SB_ORIGINAL(sub_8239D8F0)(ctx, base);
+    t_building = -1;
+}
+
+// Attrib attribute lookup (r3: the result { .., .., node, single value },
+// r5: the attribute key). While an override builds, its actions get our arrays.
+SB_HOOK(sub_8214B758)
+{
+    const uint32_t out = ctx.r3.u32;
+    const uint32_t key = ctx.r5.u32;
+    SB_ORIGINAL(sub_8214B758)(ctx, base);
+    if (t_building < 0)
+        return;
+    const Override& o = kOverrides[t_building];
+    for (size_t b = 0; b < o.count; b++)
+    {
+        if (o.bindings[b].action != key)
+            continue;
+        const uint32_t node = s_nodes[t_building][b];
+        const uint32_t original = PPC_LOAD_U32(out + 8);
+        if (original)  // copy the original node except its data pointer
+            for (uint32_t i = 0; i < 16; i += 4)
+                if (i != 4)
+                    PPC_STORE_U32(node + i, PPC_LOAD_U32(original + i));
+        PPC_STORE_U8(node + 0xB, (PPC_LOAD_U8(node + 0xB) & ~0x30) | 0x02);
+        PPC_STORE_U32(out + 8, node);
+        PPC_STORE_U32(out + 12, 0);
+        return;
+    }
+}
+
+// Controls screen (Options > Controller): the picture labels.
+SB_HOOK(sub_8223F708)
+{
+    WithTypeLabels(base, PPC_LOAD_U32(region::Addr(kControlsPlayer)),
+        [&] { SB_ORIGINAL(sub_8223F708)(ctx, base); });
+}
+
+// Loading screen's controller picture (player 0).
+SB_HOOK(sub_822BA768)
+{
+    WithTypeLabels(base, 0, [&] { SB_ORIGINAL(sub_822BA768)(ctx, base); });
+}
+
 namespace fixes
 {
     void ApplyAtBoot()
@@ -776,6 +1150,11 @@ namespace fixes
         {
             s_fixTimebug = true;
             fprintf(stderr, "[fixes] Timebug: on\n");
+        }
+        if (settings::GetBool(settings::Id::ModernGamepadLayouts))
+        {
+            s_modernLayouts = true;
+            fprintf(stderr, "[fixes] Modern gamepad layouts: on\n");
         }
     }
 }
