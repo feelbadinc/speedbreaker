@@ -189,6 +189,11 @@ namespace settings
             { int32_t(MirrorInChaseCams::Hidden), "hidden", "Hidden" },
         };
 
+        constexpr EnumEntry kTipsOnLoadscreensEntries[] = {
+            { int32_t(TipsOnLoadscreens::Shown), "shown", "Shown" },
+            { int32_t(TipsOnLoadscreens::Hidden), "hidden", "Hidden" },
+        };
+
         constexpr EnumEntry kAspectEntries[] = {
             { int32_t(AspectMode::Auto), "auto", "Fill Screen" },
             { int32_t(AspectMode::Widescreen), "16:9", "16:9" },
@@ -611,6 +616,10 @@ namespace settings
               .table = "fixes", .key = "subtitles", .label = "Subtitles",
               .description = "The game automatically shows story movie subtitles only when its locale differs from the voiceover language. You can choose to force them on or off regardless.",
               .env = "NFSMW_FIX_SUBTITLES", .defaultValue = double(int32_t(Subtitles::Auto)), .entries = kSubtitlesEntries },
+            { .id = Id::TipsOnLoadscreens, .category = Category::Fixes, .type = Type::Enum, .apply = Apply::Live,
+              .table = "fixes", .key = "tips_on_loadscreens", .label = "Tips on Loading Screens",
+              .description = "Loading screens may show a game tip or the gamepad layout. Useful on a real console, a nuisance here since they pass by too fast to read. You may choose to hide them.",
+              .env = "NFSMW_FIX_LOADING_TIPS", .defaultValue = double(int32_t(TipsOnLoadscreens::Shown)), .entries = kTipsOnLoadscreensEntries },
             { .id = Id::WorldMapAnywhere, .category = Category::Fixes, .type = Type::Bool, .apply = Apply::Live,
               .table = "fixes", .key = "world_map_anywhere", .label = "World Map During Events",
               .description = "The original game lets you open the World Map only in free roam. The fix lets you do that during events as well.",

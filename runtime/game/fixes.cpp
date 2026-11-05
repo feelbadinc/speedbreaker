@@ -1175,6 +1175,17 @@ SB_HOOK(sub_822BA768)
     HideGuideText(ctx, base, screen);
 }
 
+// Tips on Loading Screens: tip choice of the loading screen picker.
+// 28 = plain Loading.fng (27 = controller picture, else a tip idx).
+SB_HOOK(sub_822B9980)
+{
+    if (settings::TipsOnLoadscreens(settings::GetInt(settings::Id::TipsOnLoadscreens))
+        == settings::TipsOnLoadscreens::Hidden)
+        ctx.r3.u64 = 28;
+    else
+        SB_ORIGINAL(sub_822B9980)(ctx, base);
+}
+
 namespace fixes
 {
     void ApplyAtBoot()
