@@ -449,6 +449,16 @@ bool AliasListNameFits(PPCRegister& r11)
     return LongerAliasNames() && r11.u32 <= kLongAliasName;
 }
 
+// Carbon-Style Race Progress: 1-lap races show percentage. Ported
+// from NFSMWExOpts (ShowPercentOn1LapRaces). Race progress text
+// (sub_8229FDD8), r3 = race type (0 = no race), r31 = widget.
+bool RaceProgressLapText(PPCRegister& r3, PPCRegister& r31)
+{
+    uint8_t* base = g_memory.base;
+    return settings::GetBool(settings::Id::CarbonStyleRaceProgress)
+        && r3.u32 != 0 && PPC_LOAD_U32(r31.u32 + 60) == 1;  // lap total
+}
+
 // Skip EA Trax In-Game: Engage Event (d-pad up) plays the next track, in free
 // roam when there's no event to engage, in races always; the standings (race
 // or pursuit event) move to D-pad Down. Uses the menu next-song function with

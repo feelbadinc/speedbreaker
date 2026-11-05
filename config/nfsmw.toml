@@ -331,6 +331,14 @@ address = 0x82292964
 registers = ["r11"]
 jump_address_on_true = 0x82292970
 
+# Carbon-Style Race Progress (runtime/game/fixes.cpp): the
+# race progress text (sub_8229FDD8) at the LAP x/y branch.
+[[midasm_hook]]
+name = "RaceProgressLapText"
+address = 0x8229FFA4
+registers = ["r3", "r31"]
+jump_address_on_true = 0x8229FFD4
+
 # Fix Timebug (runtime/game/fixes.cpp): the sim step (sub_82468148) right
 # after it stores the clock plus the step (f1), before the step tasks run.
 [[midasm_hook]]

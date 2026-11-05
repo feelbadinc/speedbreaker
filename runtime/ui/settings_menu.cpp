@@ -926,6 +926,11 @@ namespace ui
                 ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Skip with D-pad Up" : "Original behavior.");
                 RowDescription(o);
             }
+            else if (o.id == Id::CarbonStyleRaceProgress)
+            {
+                ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Carbon style." : "Original behavior.");
+                RowDescription(o);
+            }
             else if (o.id == Id::FixBustedScenes || o.id == Id::FixPursuitCrashes)
             {
                 ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Bugfix." : "Original behavior.");
