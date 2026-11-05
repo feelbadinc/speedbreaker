@@ -429,6 +429,26 @@ bool HideXboxLiveEntry()
     return settings::GetBool(settings::Id::HideXboxLiveEntry);
 }
 
+// Longer Alias Names: the alias keyboard takes up to 15 characters (same
+// A-Z/0-9 set), and the alias load list keeps saves with names that long.
+// Ported from NFSMWExOpts (AllowLongerProfileNames).
+constexpr uint32_t kLongAliasName = 15;
+
+static bool LongerAliasNames() { return settings::GetBool(settings::Id::LongerAliasNames); }
+
+// Alias keyboard setup (sub_8228EB30), r5 = max length.
+void AliasNameLengthSet(PPCRegister& r5)
+{
+    if (LongerAliasNames())
+        r5.u64 = kLongAliasName;
+}
+
+// Load list builder (sub_822926F0), r11 = a save's name length; true lists it.
+bool AliasListNameFits(PPCRegister& r11)
+{
+    return LongerAliasNames() && r11.u32 <= kLongAliasName;
+}
+
 // Skip EA Trax In-Game: Engage Event (d-pad up) plays the next track, in free
 // roam when there's no event to engage, in races always; the standings (race
 // or pursuit event) move to D-pad Down. Uses the menu next-song function with

@@ -149,6 +149,7 @@ namespace settings
         HideXboxLiveEntry,
         InGameTraxSkip,
         IntroVideos,
+        LongerAliasNames,
         MainMenuQuit,
         MirrorInChaseCams,
         ShowHudOnLookback,

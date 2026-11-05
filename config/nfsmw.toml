@@ -316,6 +316,21 @@ name = "HideXboxLiveEntry"
 address = 0x82237D54
 jump_address_on_true = 0x82237DE0
 
+# Longer Alias Names (runtime/game/fixes.cpp): the alias keyboard
+# setup (sub_8228EB30) right after it loads the max length (r5).
+[[midasm_hook]]
+name = "AliasNameLengthSet"
+address = 0x8228EBF0
+registers = ["r5"]
+
+# ...and the load list builder (sub_822926F0) where
+# it skips names of 8+ characters (r11 = length).
+[[midasm_hook]]
+name = "AliasListNameFits"
+address = 0x82292964
+registers = ["r11"]
+jump_address_on_true = 0x82292970
+
 # Fix Timebug (runtime/game/fixes.cpp): the sim step (sub_82468148) right
 # after it stores the clock plus the step (f1), before the step tasks run.
 [[midasm_hook]]

@@ -916,6 +916,11 @@ namespace ui
                 ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Shown." : "Hidden.");
                 RowDescription(o);
             }
+            else if (o.id == Id::LongerAliasNames)
+            {
+                ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "15 characters limit." : "7 characters limit.");
+                RowDescription(o);
+            }
             else if (o.id == Id::InGameTraxSkip)
             {
                 ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Skip with D-pad Up" : "Original behavior.");
