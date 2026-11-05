@@ -154,6 +154,7 @@ namespace settings
         IntroVideos,
         LongerAliasNames,
         MainMenuQuit,
+        MaxPerformanceOnShop,
         MirrorInChaseCams,
         ModernGamepadLayouts,
         ShowHudOnLookback,

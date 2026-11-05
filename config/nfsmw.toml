@@ -346,6 +346,19 @@ name = "WorldMapEventCheck"
 address = 0x822A9C34
 jump_address_on_true = 0x822A9C38
 
+# Max Performance in Career (runtime/game/fixes.cpp): the menu input
+# handler (sub_825755F8) and button setup (sub_82575C80),
+# each at its career check, jumping to the Performance screen check.
+[[midasm_hook]]
+name = "MaxPerformanceCareerCheck"
+address = 0x82575BDC
+jump_address_on_true = 0x82575C18
+
+[[midasm_hook]]
+name = "MaxPerformanceCareerCheck"
+address = 0x82575E10
+jump_address_on_true = 0x82575E4C
+
 # Fix Leaderboard Refresh (runtime/game/fixes.cpp): the leaderboard widget
 # update (sub_822A0398), before it decrements its names/gaps countdown.
 [[midasm_hook]]

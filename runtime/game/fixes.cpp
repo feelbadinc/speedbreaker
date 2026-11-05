@@ -730,6 +730,69 @@ SB_HOOK(sub_822AA818)
         ctx.r3.u64 = 0;
 }
 
+// Max Performance in Career: skips the button's "career mode" check in
+// the customize menu's input handler and button setup; the Performance
+// screen check stays. Ported from NFSMWExOpts (EnableMaxPerformanceOnShop).
+bool MaxPerformanceCareerCheck()
+{
+    return settings::GetBool(settings::Id::MaxPerformanceOnShop);
+}
+
+namespace
+{
+    constexpr uint32_t kCareerFlags = 300;          // FEDatabase: bit 0 = Career
+    constexpr uint32_t kCategory = 332;             // screen: category
+    constexpr uint32_t kPerformanceCategory = 0x802;
+    constexpr uint32_t kScreenPackage = 16;
+    constexpr uint32_t kMaxPerfButton = 0x5AEC8D91;
+    constexpr uint32_t kFindObject = 0x8227FD58;    // (package, hash)
+    constexpr uint32_t kSetPosition = 0x823018D8;   // (object, xyz*)
+    constexpr uint32_t kObjectData = 44;            // object -> data; +28: xyz
+    constexpr float kRowsDown = 100.0f;             // Cash/Total row -> below B/A
+    uint32_t s_movedObject = 0;
+    float s_movedY = 0.0f;
+}
+
+// In Career the button sits under the Cash/Total box; move it to its own row
+// below the A/B hints. Ported from NFSMWExOpts (EnableMaxPerformanceOnShop).
+SB_HOOK(sub_82575C80)
+{
+    const uint32_t screen = ctx.r3.u32;
+    SB_ORIGINAL(sub_82575C80)(ctx, base);
+    if (!settings::GetBool(settings::Id::MaxPerformanceOnShop))
+        return;
+    const uint32_t db = PPC_LOAD_U32(region::Addr(kFeDatabase));
+    if (!db || !(PPC_LOAD_U32(db + kCareerFlags) & 1)
+        || PPC_LOAD_U32(screen + kCategory) != kPerformanceCategory)
+        return;
+
+    PPCContext call = ctx;
+    call.r3.u64 = PPC_LOAD_U32(screen + kScreenPackage);
+    call.r4.u64 = kMaxPerfButton;
+    g_memory.FindFunction(region::Addr(kFindObject))(call, base);
+    const uint32_t object = call.r3.u32;
+    if (!object)
+        return;
+    const uint32_t pos = PPC_LOAD_U32(object + kObjectData) + 28;
+    const float y = std::bit_cast<float>(uint32_t(PPC_LOAD_U32(pos + 4)));
+    if (object == s_movedObject && y == s_movedY)  // setup ran again
+        return;
+    s_movedObject = object;
+    s_movedY = y + kRowsDown;
+
+    // xyz on a fresh stack frame below the caller.
+    call = ctx;
+    call.r1.u32 = ctx.r1.u32 - 0x80;
+    PPC_STORE_U32(call.r1.u32, ctx.r1.u32);  // back chain
+    const uint32_t xyz = call.r1.u32 + 0x50;
+    PPC_STORE_U32(xyz, PPC_LOAD_U32(pos));
+    PPC_STORE_U32(xyz + 4, std::bit_cast<uint32_t>(s_movedY));
+    PPC_STORE_U32(xyz + 8, PPC_LOAD_U32(pos + 8));
+    call.r3.u64 = object;
+    call.r4.u64 = xyz;
+    g_memory.FindFunction(region::Addr(kSetPosition))(call, base);
+}
+
 // Show HUD on Look Back: the HUD stays up; the mirror keeps its own
 // lookback check. Ported from NFSMWExOpts (ShowHUDOnLookBack).
 namespace
