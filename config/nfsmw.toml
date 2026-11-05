@@ -346,6 +346,13 @@ name = "WorldMapEventCheck"
 address = 0x822A9C34
 jump_address_on_true = 0x822A9C38
 
+# Fix Leaderboard Refresh (runtime/game/fixes.cpp): the leaderboard widget
+# update (sub_822A0398), before it decrements its names/gaps countdown.
+[[midasm_hook]]
+name = "LeaderboardCountdown"
+address = 0x822A0424
+registers = ["r26"]
+
 # Fix Timebug (runtime/game/fixes.cpp): the sim step (sub_82468148) right
 # after it stores the clock plus the step (f1), before the step tasks run.
 [[midasm_hook]]

@@ -143,6 +143,7 @@ namespace settings
         CarbonStyleRaceProgress,
         FixBustedScenes,
         FixCopSpoilerDamage,
+        FixLeaderboardRefresh,
         FixPursuitCrashes,
         FixTimebug,
         GamepadPrompts,

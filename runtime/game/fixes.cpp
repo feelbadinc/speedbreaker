@@ -485,6 +485,32 @@ bool WorldMapEventCheck()
     return settings::GetBool(settings::Id::WorldMapAnywhere);
 }
 
+// Fix Leaderboard Refresh: the race leaderboard names/gaps countdown
+// (+552, 90) ticks once per 1/30 s of real time, as on a 30 fps 360.
+// Inspired by WFP (#1218). r26 = widget, before the game's decrement.
+void LeaderboardCountdown(PPCRegister& r26)
+{
+    struct Pace { uint64_t lastNs; double carry; };
+    static std::unordered_map<uint32_t, Pace> s_paces;  // per widget (split screen)
+    if (!settings::GetBool(settings::Id::FixLeaderboardRefresh))
+    {
+        s_paces.clear();
+        return;
+    }
+    uint64_t now = SDL_GetTicksNS();
+    Pace& pace = s_paces.try_emplace(r26.u32, Pace{ now, 0.0 }).first->second;
+    pace.carry += std::min((now - pace.lastNs) / 1e9, 0.25);  // pauses don't burst
+    pace.lastNs = now;
+    int ticks = int(pace.carry * 30.0);
+    pace.carry -= ticks / 30.0;
+
+    uint8_t* base = g_memory.base;
+    int32_t counter = int32_t(PPC_LOAD_U32(r26.u32 + 552));
+    if (counter > 0)
+        // the game takes 1 off next
+        PPC_STORE_U32(r26.u32 + 552, uint32_t(std::max(1, counter - ticks + 1)));
+}
+
 // Skip EA Trax In-Game: Engage Event (d-pad up) plays the next track, in free
 // roam when there's no event to engage, in races always; the standings (race
 // or pursuit event) move to D-pad Down. Uses the menu next-song function with
