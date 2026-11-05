@@ -906,7 +906,8 @@ namespace ui
                 ImGui::TextDisabled("Changes take effect the next time the game starts.");
             else if (std::string note = o.id == Id::FrameRate ? video::AutoFrameRateNote() : std::string(); !note.empty())
                 ImGui::TextDisabled("%s", note.c_str());  // what Auto runs at now
-            else if (o.id == Id::HideEsrbDisclaimer || o.id == Id::HideXboxLiveEntry)
+            else if (o.id == Id::HideEsrbDisclaimer || o.id == Id::HideSubtitleBackground
+                || o.id == Id::HideXboxLiveEntry)
             {
                 ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Hidden." : "Shown.");
                 RowDescription(o);

@@ -422,6 +422,25 @@ bool SubtitlesForceOff()
     return SubtitlesMode(settings::Subtitles::ForceOff);
 }
 
+// Hide Subtitle Background: hides the background behind the subtitle text.
+constexpr uint32_t kSubtitleBackground = 0x10;  // subtitles -> background object
+constexpr uint32_t kHideObject = 0x8227FE08;    // FEng hide
+
+// Subtitle message handler (r3 = subtitles), runs every frame of a movie.
+SB_HOOK(sub_822877A0)
+{
+    if (settings::GetBool(settings::Id::HideSubtitleBackground))
+    {
+        if (uint32_t background = PPC_LOAD_U32(ctx.r3.u32 + kSubtitleBackground))
+        {
+            PPCContext call = ctx;
+            call.r3.u64 = background;
+            g_memory.FindFunction(region::Addr(kHideObject))(call, base);
+        }
+    }
+    SB_ORIGINAL(sub_822877A0)(ctx, base);
+}
+
 // Hide Xbox Live Entry: the main menu builder (sub_82237900) skips
 // the Xbox Live row. Inspired by NFSMWExOpts (ShowOnline).
 bool HideXboxLiveEntry()
