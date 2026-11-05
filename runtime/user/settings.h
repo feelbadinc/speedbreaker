@@ -157,6 +157,7 @@ namespace settings
         MaxPerformanceOnShop,
         MirrorInChaseCams,
         ModernGamepadLayouts,
+        Nfsu2LoyaltyBonus,
         ShowHudOnLookback,
         Subtitles,
         TipsOnLoadscreens,

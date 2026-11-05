@@ -937,6 +937,11 @@ namespace ui
                 ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Carbon style." : "Original behavior.");
                 RowDescription(o);
             }
+            else if (o.id == Id::Nfsu2LoyaltyBonus)
+            {
+                ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Grant bonus." : "Original behavior.");
+                RowDescription(o);
+            }
             else if (o.id == Id::UnlockAllThings)
             {
                 ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Unlocked." : "Original behavior.");

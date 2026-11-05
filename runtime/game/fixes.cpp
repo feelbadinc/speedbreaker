@@ -730,6 +730,27 @@ SB_HOOK(sub_822AA818)
         ctx.r3.u64 = 0;
 }
 
+// NFS:U2 Loyalty Bonus: at a new Career this function shows the "thanks for
+// playing NFS:U2" dialog and adds $10k when its save-found flag is set; on
+// the 360 nothing sets it. Inspired by NFSMWExOpts (AwardedCash).
+SB_HOOK(sub_8228A790)
+{
+    constexpr uint32_t kSaveFound = 44;
+    constexpr uint32_t kCareerFlags = 0xB0 + 4;  // bit 1: bonus handled
+    const uint32_t db = PPC_LOAD_U32(region::Addr(kFeDatabase));
+    const uint32_t player = db ? PPC_LOAD_U32(db + 0x10) : 0;
+    const uint32_t object = ctx.r3.u32;
+    const uint8_t found = PPC_LOAD_U8(object + kSaveFound);
+    if (player && !(PPC_LOAD_U32(player + kCareerFlags) & 2)
+        && settings::GetBool(settings::Id::Nfsu2LoyaltyBonus))
+    {
+        PPC_STORE_U8(object + kSaveFound, 1);
+        fprintf(stderr, "[fixes] NFSU2 loyalty bonus: $10,000 granted\n");
+    }
+    SB_ORIGINAL(sub_8228A790)(ctx, base);
+    PPC_STORE_U8(object + kSaveFound, found);  // no stale flag for the next Career
+}
+
 // Max Performance in Career: skips the button's "career mode" check in
 // the customize menu's input handler and button setup; the Performance
 // screen check stays. Ported from NFSMWExOpts (EnableMaxPerformanceOnShop).
