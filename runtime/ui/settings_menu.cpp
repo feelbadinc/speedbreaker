@@ -937,6 +937,11 @@ namespace ui
                 ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Carbon style." : "Original behavior.");
                 RowDescription(o);
             }
+            else if (o.id == Id::UnlockAllThings)
+            {
+                ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Unlocked." : "Original behavior.");
+                RowDescription(o);
+            }
             else if (o.id == Id::WorldMapAnywhere)
             {
                 ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Allowed." : "Original behavior.");

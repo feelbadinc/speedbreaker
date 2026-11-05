@@ -30,6 +30,18 @@ namespace
     // only reads (0 in the base game). Ported from the Xenia patch by tuhana.
     constexpr uint32_t kBlackEditionFlag = 0x82A2CE06;
 
+    // Unlock All Content: the game's debug UnlockAllThings byte;
+    // the unlock checks pass while it's set. RAM only, not saved.
+    // Ported from NFSMWExOpts (UnlockAllThings).
+    constexpr uint32_t kUnlockAllThings = 0x82A2CE00;
+
+    void ApplyUnlockAllThings()
+    {
+        bool on = settings::GetBool(settings::Id::UnlockAllThings);
+        *static_cast<uint8_t*>(g_memory.Translate(region::Addr(kUnlockAllThings))) = on;
+        fprintf(stderr, "[fixes] Unlock all content: %s\n", on ? "on" : "off");
+    }
+
     // Fix Cop Spoiler Damage: COPSPORTHENCH and COPSPORTGHOST spoilers never get
     // damaged, as the damage zone map lacks their slot (4). Four of its duplicate
     // entries become spoiler entries. Spotted in NFSMW Unlimiter, done from scratch.
@@ -1200,6 +1212,13 @@ namespace fixes
             *static_cast<uint8_t*>(g_memory.Translate(region::Addr(kBlackEditionFlag))) = 1;
             fprintf(stderr, "[fixes] Black Edition content: on\n");
         }
+        if (settings::GetBool(settings::Id::UnlockAllThings))
+            ApplyUnlockAllThings();
+        static const uint32_t unlockListener = settings::Subscribe([](settings::Id id) {
+            if (id == settings::Id::UnlockAllThings)
+                ApplyUnlockAllThings();
+        });
+        (void)unlockListener;
         if (settings::GetBool(settings::Id::FixCopSpoilerDamage))
         {
             auto* map = static_cast<be<uint32_t>*>(g_memory.Translate(region::Addr(kDamageZoneMap)));

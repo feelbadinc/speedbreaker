@@ -159,6 +159,7 @@ namespace settings
         ShowHudOnLookback,
         Subtitles,
         TipsOnLoadscreens,
+        UnlockAllThings,
         WorldMapAnywhere,
         // Advanced
         AsyncShaders,
