@@ -1109,17 +1109,70 @@ SB_HOOK(sub_8214B758)
     }
 }
 
+// Gamepad Prompts, PS3/PS4: the controls and loading screens show
+// the DualShock 2 leftover picture, without the "Xbox Guide" text.
+namespace
+{
+    constexpr uint32_t kX360Stick = 0xEC3C0443;  // LOADING_CONTROLLER_X360, D-pad +1
+    constexpr uint32_t kPs2Stick = 0xDF7B27A7;   // LOADING_CONTROLLER_PS2_C1, D-pad +1
+
+    bool DualShockPicture()
+    {
+        using enum settings::GamepadPrompts;
+        const auto set = settings::GamepadPrompts(
+            settings::GetInt(settings::Id::GamepadPrompts));
+        return set == Ps3 || set == Ps4;
+    }
+
+    uint32_t ControllerPicture(uint32_t picture)
+    {
+        if (s_modernLayouts)  // modern layouts show the stick variant only
+            picture = kX360Stick;
+        return DualShockPicture() ? kPs2Stick + (picture - kX360Stick) : picture;
+    }
+
+    // Finds the screen package CBUTTON_18 (sub_8227FD58) and hides it.
+    void HideGuideText(PPCContext& ctx, uint8_t* base, uint32_t screen)
+    {
+        if (!DualShockPicture())
+            return;
+        PPCContext call = ctx;
+        call.r3.u64 = PPC_LOAD_U32(screen + 16);
+        call.r4.u64 = 0x0F274B86;
+        g_memory.FindFunction(region::Addr(0x8227FD58))(call, base);
+        if (call.r3.u32)
+            g_memory.FindFunction(region::Addr(kHideObject))(call, base);
+    }
+}
+
+// The texture hash where the screens pick the picture (config/nfsmw.toml).
+void ControllerPictureChosen(PPCRegister& picture)
+{
+    picture.u64 = ControllerPicture(picture.u32);
+}
+
+// ...and the controls screen's getter for it.
+SB_HOOK(sub_8223FC18)
+{
+    SB_ORIGINAL(sub_8223FC18)(ctx, base);
+    ctx.r3.u64 = ControllerPicture(ctx.r3.u32);
+}
+
 // Controls screen (Options > Controller): the picture labels.
 SB_HOOK(sub_8223F708)
 {
+    const uint32_t screen = ctx.r3.u32;
     WithTypeLabels(base, PPC_LOAD_U32(region::Addr(kControlsPlayer)),
         [&] { SB_ORIGINAL(sub_8223F708)(ctx, base); });
+    HideGuideText(ctx, base, screen);
 }
 
 // Loading screen's controller picture (player 0).
 SB_HOOK(sub_822BA768)
 {
+    const uint32_t screen = ctx.r3.u32;
     WithTypeLabels(base, 0, [&] { SB_ORIGINAL(sub_822BA768)(ctx, base); });
+    HideGuideText(ctx, base, screen);
 }
 
 namespace fixes
