@@ -156,6 +156,7 @@ namespace settings
         MirrorInChaseCams,
         ShowHudOnLookback,
         Subtitles,
+        WorldMapAnywhere,
         // Advanced
         AsyncShaders,
         PerformanceOverlay,

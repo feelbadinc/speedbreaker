@@ -603,6 +603,10 @@ namespace settings
               .table = "fixes", .key = "subtitles", .label = "Subtitles",
               .description = "The game automatically shows story movie subtitles only when its locale differs from the voiceover language. You can choose to force them on or off regardless.",
               .env = "NFSMW_FIX_SUBTITLES", .defaultValue = double(int32_t(Subtitles::Auto)), .entries = kSubtitlesEntries },
+            { .id = Id::WorldMapAnywhere, .category = Category::Fixes, .type = Type::Bool, .apply = Apply::Live,
+              .table = "fixes", .key = "world_map_anywhere", .label = "World Map During Events",
+              .description = "The original game lets you open the World Map only in free roam. The fix lets you do that during events as well.",
+              .env = "NFSMW_FIX_WORLD_MAP", .defaultValue = 0 },
             // Advanced
             { .id = Id::AsyncShaders, .category = Category::Advanced, .type = Type::Bool, .apply = Apply::Live,
               .table = "advanced", .key = "async_shaders", .label = "Asynchronous Shaders",
