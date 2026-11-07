@@ -6,9 +6,12 @@
 // works too (a click selects a row, its arrows change it, the tabs turn
 // pages), and touch as the mouse (on iOS a drag scrolls the rows: ui.cpp).
 // Advanced also has Save Bug Report (report/bug_report.cpp), Check for
-// Updates (update_dialog.cpp), the build's identity (version and commit) and
-// the legal notice. The footer's last button is Quit Game, which asks first
-// (quit_game.h; not on iPhone or iPad).
+// Updates (update_dialog.cpp) with Check for Updates at Startup under it,
+// the build's identity (version and commit) and the legal notice. The
+// footer's last button is Quit Game, which asks first (quit_game.h; not on
+// iPhone or iPad); while a check (at startup or pressed) has found a newer
+// version, its first is "Update to v0.2.5", on every page, which opens the
+// update dialog with it.
 #include <stdafx.h>
 #include "ui.h"
 #include "quit_game.h"
@@ -17,6 +20,7 @@
 #include <gpu/renderer.h>    // Internal Resolution's labels: what each entry renders now
 #include <region/region.h>   // the Fixes page: USA only for now
 #include <report/report.h>
+#include <update/updater.h>  // the footer's "Update to v0.2.5"
 #include <user/settings.h>
 #include <hid/key_map.h>     // the Controls page: one row per control, two keys each
 #include <hid/wheel.h>       // the Wheel page: the device, its pedals and what they read
@@ -1135,7 +1139,7 @@ namespace ui
                             if (o.category == category && Shown(o))
                                 valueWidth = std::max(valueWidth, ValueWidth(o));
                     if (category == Category::Advanced)
-                        for (const char* text : { "Saving...", "Checking...", UpdateRowValue() })
+                        for (const char* text : { "Saving...", "Checking...", "Couldn't check (offline)", UpdateRowValue() })
                             valueWidth = std::max(valueWidth, ImGui::CalcTextSize(text).x);
                     if (category == Category::Wheel)
                         for (const char* text : { "Start", "17/17" })
@@ -1155,7 +1159,7 @@ namespace ui
                             }
                         else
                             for (const auto& o : settings::Options())
-                                if (o.category == category && Shown(o))
+                                if (o.category == category && Shown(o) && o.id != Id::UpdateCheck)
                                 {
                                     OptionRow(o, valueWidth, focusFirst);
                                     focusFirst = false;
@@ -1166,6 +1170,8 @@ namespace ui
                         {
                             BugReportRow(valueWidth);
                             UpdateRow(valueWidth);
+                            // The startup check's switch, under the button it adds to.
+                            OptionRow(settings::Info(Id::UpdateCheck), valueWidth, false);
                         }
                         ImGui::EndTable();
                     }
@@ -1207,6 +1213,17 @@ namespace ui
         for (const auto& o : settings::Options())
             if (o.category == s_category && (Shown(o) || (o.hidden && hiddenCounts)) && !settings::IsDefault(o.id))
                 anyChanged = true;
+        // A newer version (update/updater.h): first, so Down from the rows
+        // lands on it.
+        if (const std::string update = update::FooterLabel(); !update.empty())
+        {
+            PushAccentText();
+            const bool pressed = ImGui::Button(update.c_str());
+            PopAccentText();
+            if (pressed)
+                ShowUpdateDialog();
+            ImGui::SameLine();
+        }
         ImGui::BeginDisabled(!anyChanged);
         if (ImGui::Button("Reset page"))
             ImGui::OpenPopup("reset");
@@ -1228,8 +1245,13 @@ namespace ui
         {
             // (The Controls page leaves out "D-pad: choose": with Quit Game in the
             // footer its legend was wider than the window and lost "B: close".)
+            // Shorter where the footer's buttons leave less room (the update
+            // button), never cut: "B: close" stays.
             const char* legend = s_category == Category::Controls ? "A: set key   Y: clear   X: default   LB RB: page   B: close"
                                                                  : "D-pad: choose, change   LB RB: page   B: close";
+            for (const char* shorter : { "LB RB: page   B: close", "B: close" })
+                if (ImGui::GetCursorPosX() + ImGui::CalcTextSize(legend).x > ImGui::GetWindowContentRegionMax().x)
+                    legend = shorter;
             float w = ImGui::CalcTextSize(legend).x;
             ImGui::SetCursorPosX(std::max(ImGui::GetCursorPosX(), ImGui::GetWindowContentRegionMax().x - w));
             ImGui::TextDisabled("%s", legend);
