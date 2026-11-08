@@ -1325,3 +1325,29 @@ namespace fixes
         }
     }
 }
+
+// Fix Stuck Weather: cutscene time-of-day events set an overcast override
+// (>= 0 replaces the cycle) that is rarely cleared. Cleared in the FE.
+// Ported from X360 Stuff Pack (ResetOvercastOverrideAfterNIS).
+namespace
+{
+    constexpr uint32_t kOvercastOverride = 0x82900CCC;  // float, < 0 = off
+    constexpr uint32_t kGameFlowState = 0x82A39AD8;     // 3 = in FE
+}
+
+// Time-of-day lighting update (per frame).
+SB_HOOK(sub_822265D0)
+{
+    if (settings::GetBool(settings::Id::FixStuckWeather)
+        && PPC_LOAD_U32(region::Addr(kGameFlowState)) == 3)
+    {
+        const uint32_t at = region::Addr(kOvercastOverride);
+        auto& overcast = *static_cast<be<float>*>(g_memory.Translate(at));
+        if (overcast >= 0.0f)
+        {
+            fprintf(stderr, "[fixes] Stuck weather: cleared %.3f\n", float(overcast));
+            overcast = -1.0f;
+        }
+    }
+    SB_ORIGINAL(sub_822265D0)(ctx, base);
+}

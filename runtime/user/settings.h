@@ -148,6 +148,7 @@ namespace settings
         FixCopSpoilerDamage,
         FixLeaderboardRefresh,
         FixPursuitCrashes,
+        FixStuckWeather,
         FixTimebug,
         GamepadPrompts,
         HideEsrbDisclaimer,

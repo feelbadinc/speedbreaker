@@ -957,7 +957,7 @@ namespace ui
                 RowDescription(o);
             }
             else if (o.id == Id::FixBustedScenes || o.id == Id::FixLeaderboardRefresh
-                || o.id == Id::FixPursuitCrashes)
+                || o.id == Id::FixPursuitCrashes || o.id == Id::FixStuckWeather)
             {
                 ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Bugfix." : "Original behavior.");
                 RowDescription(o);
