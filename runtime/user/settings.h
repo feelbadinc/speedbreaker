@@ -150,7 +150,6 @@ namespace settings
         FixPursuitCrashes,
         FixStuckWeather,
         FixTimebug,
-        GamepadPrompts,
         HideEsrbDisclaimer,
         HideSubtitleBackground,
         HideXboxLiveEntry,
@@ -219,17 +218,6 @@ namespace settings
     enum class IntroVideos : int32_t
     {
         Original = 0, EaLogoOnly = 1, SkipEaHd = 2, SkipAll = 3
-    };
-    // Gamepad Prompts (game/fixes.cpp): the original icons, or an HD set
-    // (resources/hd_buttons/<set>).
-    enum class GamepadPrompts : int32_t
-    {
-        Original = 0,
-        Xbox360 = 1,
-        XboxOne = 2,
-        Ps3 = 3,
-        Ps4 = 4,
-        Switch = 5,
     };
     // Subtitles (game/fixes.cpp): Auto = stock behavior,
     // Force On = every movie, Force Off = tutorials only.

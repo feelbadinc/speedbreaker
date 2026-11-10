@@ -888,7 +888,7 @@ namespace ui
                 RestartFixRow(o, [](double choice) { return choice != 0.0 ? "Bugfix" : "Original behavior"; });
                 return;
             }
-            if (o.id == Id::GamepadPrompts || o.id == Id::IntroVideos)
+            if (o.id == Id::IntroVideos)
             {
                 RestartFixRow(o);
                 return;
