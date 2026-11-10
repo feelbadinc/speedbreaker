@@ -31,11 +31,10 @@
 # label's words but "windows" and "build"; the build's own date and commit),
 # holds at its root (Explorer's Extract All makes the folder):
 #   SpeedBreaker.exe, SpeedBreaker.pdb (the same build: names in crash and
-#   hang reports), resources\ (the game's own files, from the build's
-#   runtime\resources: the HD gamepad prompts), the three tester documents,
-#   and licenses\ with every third-party notice the exe needs and a
-#   README.txt listing them, which says the source code is in
-#   <zip name>-source.zip beside it (made separately, from the commit).
+#   hang reports), the three tester documents, and licenses\ with every
+#   third-party notice the exe needs and a README.txt listing them, which
+#   says the source code is in <zip name>-source.zip beside it (made
+#   separately, from the commit).
 #
 # It refuses (exit 1), naming why, when:
 #   - the build isn't a labelled one, is dirty (--allow-dirty), or the exe
@@ -499,19 +498,10 @@ def main():
                                                                 (commit, version) if args.public else None)).encode("utf-8")))
     for name, text in license_files:
         members.append(("licenses/" + name, crlf(text).encode("utf-8")))
-    resources = os.path.join(args.build, "runtime", "resources")
-    if not os.path.isdir(resources):
-        fail("no %s (the build copies the repository's resources/ there)" % resources)
-    for d, dirs, files in os.walk(resources):
-        dirs.sort()
-        for f in sorted(files):
-            path = os.path.join(d, f)
-            members.append(("resources/" + os.path.relpath(path, resources).replace(os.sep, "/"), read(path)))
 
     # Checks.
     hashes = game_hashes()
-    allowed = re.compile(r"(SpeedBreaker\.(exe|pdb)|[A-Z-]+\.(txt|md)|licenses/[A-Za-z0-9.+_-]+\.txt|"
-                         r"resources/hd_buttons/[a-z0-9_]+/[A-Z0-9_]+\.xtex)")
+    allowed = re.compile(r"(SpeedBreaker\.(exe|pdb)|[A-Z-]+\.(txt|md)|licenses/[A-Za-z0-9.+_-]+\.txt)")
     for name, data in members:
         ext = os.path.splitext(name)[1].lower()
         if not allowed.fullmatch(name):

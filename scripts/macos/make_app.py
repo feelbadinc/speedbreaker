@@ -14,9 +14,6 @@
 #   Contents/Resources/vulkan/icd.d/ MoltenVK's manifest (the Vulkan loader
 #                                    looks for drivers in the app's bundle)
 #   Contents/Resources/AppIcon.icns  from scripts/macos/AppIcon.png
-#   Contents/Resources/resources/    the build's runtime/resources (the HD
-#                                    gamepad prompts; the game looks for it
-#                                    in SDL_GetBasePath, Contents/Resources)
 #   Contents/Resources/licenses/     COPYING, NOTICE, THIRD_PARTY_NOTICES.md,
 #                                    LICENSES/, and each bundled library's
 #                                    own license files (from build_deps.sh's
@@ -547,7 +544,6 @@ def main():
         os.makedirs(d)
     exe = os.path.join(macos, 'SpeedBreaker')
     shutil.copy2(BIN, exe)
-    shutil.copytree(os.path.join(os.path.dirname(BIN), 'resources'), os.path.join(resources, 'resources'))
     # The full symbols for us, then the debug map out of the app's copy.
     symbols = os.path.join(OUT, 'symbols')
     os.makedirs(symbols, exist_ok=True)

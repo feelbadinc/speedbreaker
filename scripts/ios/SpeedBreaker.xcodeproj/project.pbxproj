@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		A00000000000000000000020 /* stub.c in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000010 /* stub.c */; };
 		A00000000000000000000021 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000014 /* Assets.xcassets */; };
-		A00000000000000000000022 /* resources in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000015 /* resources */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -18,7 +17,6 @@
 		A00000000000000000000012 /* SpeedBreaker.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SpeedBreaker.entitlements; sourceTree = "<group>"; };
 		A00000000000000000000013 /* SpeedBreaker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SpeedBreaker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A00000000000000000000014 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		A00000000000000000000015 /* resources */ = {isa = PBXFileReference; lastKnownFileType = folder; name = resources; path = ../../../resources; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -53,7 +51,6 @@
 			children = (
 				A00000000000000000000010 /* stub.c */,
 				A00000000000000000000014 /* Assets.xcassets */,
-				A00000000000000000000015 /* resources */,
 				A00000000000000000000011 /* Info.plist */,
 				A00000000000000000000012 /* SpeedBreaker.entitlements */,
 			);
@@ -118,7 +115,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				A00000000000000000000021 /* Assets.xcassets in Resources */,
-				A00000000000000000000022 /* resources in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
