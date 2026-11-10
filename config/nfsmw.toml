@@ -406,9 +406,9 @@ name = "NextSongInMenus"
 address = 0x8228632C
 registers = ["r11"]
 
-# Gamepad Prompts + Modern Gamepad Layouts (runtime/game/fixes.cpp): where
-# the controls screen (sub_8223F708, sub_8223FC68) and the loading screen
-# (sub_822BAC70) pick texture hash of the controller image.
+# Modern Gamepad Layouts (runtime/game/fixes.cpp): where the controls
+# screen (sub_8223F708, sub_8223FC68) and the loading screen (sub_822BAC70)
+# pick texture hash of the controller image.
 [[midasm_hook]]
 name = "ControllerPictureChosen"
 address = 0x8223F764
