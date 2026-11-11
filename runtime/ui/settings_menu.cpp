@@ -256,9 +256,9 @@ namespace ui
             ImGui::PopStyleColor();
         }
 
-        // A Restart fix's row: current state (currentText,
+        // A Restart option's row: current state (currentText,
         // or the entry label), description, restart note.
-        void RestartFixRow(const settings::Option& o, const char* (*currentText)(double choice) = nullptr)
+        void RestartRow(const settings::Option& o, const char* (*currentText)(double choice) = nullptr)
         {
             const char* env = settings::EnvOverride(o.id);
             const double choice = env ? settings::GetValue(o.id) : settings::GetStoredValue(o.id);
@@ -870,27 +870,27 @@ namespace ui
             }
             if (o.id == Id::BlackEditionContent)
             {
-                RestartFixRow(o, [](double choice) { return choice != 0.0 ? "Black Edition enforced" : "Original game"; });
+                RestartRow(o, [](double choice) { return choice != 0.0 ? "Black Edition enforced" : "Original game"; });
                 return;
             }
             if (o.id == Id::ModernGamepadLayouts)
             {
-                RestartFixRow(o, [](double choice) { return choice != 0.0 ? "Modern layouts" : "Original layouts"; });
+                RestartRow(o, [](double choice) { return choice != 0.0 ? "Modern layouts" : "Original layouts"; });
                 return;
             }
             if (o.id == Id::MainMenuQuit)
             {
-                RestartFixRow(o, [](double choice) { return choice != 0.0 ? "Quit enabled" : "Original behavior"; });
+                RestartRow(o, [](double choice) { return choice != 0.0 ? "Quit enabled" : "Original behavior"; });
                 return;
             }
             if (o.id == Id::FixCopSpoilerDamage || o.id == Id::FixTimebug)
             {
-                RestartFixRow(o, [](double choice) { return choice != 0.0 ? "Bugfix" : "Original behavior"; });
+                RestartRow(o, [](double choice) { return choice != 0.0 ? "Bugfix" : "Original behavior"; });
                 return;
             }
             if (o.id == Id::IntroVideos)
             {
-                RestartFixRow(o);
+                RestartRow(o);
                 return;
             }
             // The experiment's finer scale wins over Screen Resolution's.
