@@ -259,6 +259,27 @@ namespace gpu
         return std::min<uint64_t>(512, (kIntegratedSlots * 4ull * s.SlotWords() + (1u << 20) - 1) >> 20);
     }
 
+    // Whether a scaled resolve also stores its host samples into the cached
+    // scaled texture holding its destination (Resolve's hosted store: where
+    // that texture's untile would put them, sbReaderHost) instead of the
+    // texture being untiled from the pool again before its next use. Each
+    // host sample is its own image store, apart from its neighbours': at a
+    // Steam Deck's native rows (1x10/9, ~1.1 a guest pixel) it saved the
+    // scene's untile every frame (3a9576f); at a Steam Machine's 4.031x3 (12
+    // a pixel) a race frame's hosted resolves took 6.1 ms of GPU, the same
+    // resolves unhosted 1.3 ms and the scene's untile 0.75 ms; the split
+    // route's start line went from 17.6 to 12.9 ms of GPU (56.5 to 60 fps,
+    // release/v0.2.5's Steam Machine perf items). So: up to 5/4 host pixels
+    // a guest one. On Apple GPUs (appleGpu) at every scale, as up to v0.2.4:
+    // an M1 Pro at 3840x2160 and 2x2 (4 a pixel) took 0.15 to 2.3 ms more GPU
+    // a race frame unhosted, on the same stretch of road in each of four
+    // rounds: hosted 12.5-12.8 ms and 60 fps in all four, unhosted 12.95-15.0
+    // and 56-57 fps in two, v0.2.4 12.1-13.4 (release/v0.2.5's Mac stage).
+    inline bool HostScaledResolves(const RenderScale& s, bool appleGpu)
+    {
+        return appleGpu || uint64_t(s.PixelsNum()) * 4 <= uint64_t(s.PixelsDen()) * 5;
+    }
+
     // An axis from a number of half steps (2: 1x, 3: 1.5x, 4: 2x, 6: 3x),
     // reduced (4/2 is 2/1).
     inline AxisScale AxisFromHalves(uint32_t halves)
