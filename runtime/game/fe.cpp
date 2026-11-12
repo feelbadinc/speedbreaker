@@ -53,7 +53,7 @@ namespace game::fe
 
     bool IsScreen(uint32_t screen, uint32_t vtable)
     {
-        return screen && Load32(screen) == region::Addr(vtable);
+        return screen && Load32(screen) == vtable;
     }
 
     void OnUnhandledButton(UnhandledButton listener)

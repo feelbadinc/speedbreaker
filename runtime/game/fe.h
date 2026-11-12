@@ -23,7 +23,8 @@ namespace game::fe
     // Pad messages.
     constexpr uint32_t kPadBack = Hash("PAD_BACK");
 
-    // A package's screen object (0 if none), and its class check by vtable.
+    // A package's screen object (0 if none), and its class check by vtable
+    // (the running release's address: region::Addr).
     uint32_t ScreenOf(uint32_t package);
     bool IsScreen(uint32_t screen, uint32_t vtable);
 

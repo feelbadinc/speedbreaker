@@ -60,16 +60,19 @@ namespace
     bool s_fixTimebug = false;
 
     // Hide ESRB Disclaimer: the USA build splash screen (sub_822B8500) plays
-    // "SHOW" on the "Game Experience May Change During Online Play" notice at
-    // 0x822B8678; the other builds don't. "On" skips that call on the USA build.
-    constexpr uint32_t kShowEsrbNoticeCall = 0x822B867C;  // return address
-    constexpr uint32_t kShowScriptHash = 0x1CA7C0;        // "SHOW"
+    // "SHOW" on the "Game Experience May Change During Online Play" notice
+    // object; the other builds don't. "On" skips that call on the USA build.
+    // Matched by object name hash (FEObject +0x10), not return address: the
+    // PAL builds changed the splash code.
+    constexpr uint32_t kEsrbNoticeObject = 0xBDE7FA72;
+    constexpr uint32_t kShowScriptHash = 0x1CA7C0;  // "SHOW"
 
-    bool HideEsrbNotice(const PPCContext& ctx)
+    bool HideEsrbNotice(const PPCContext& ctx, uint8_t* base)
     {
         return region::Current() == region::Release::Usa
-            && static_cast<uint32_t>(ctx.lr) == region::Addr(kShowEsrbNoticeCall)
             && ctx.r4.u32 == kShowScriptHash
+            && ctx.r3.u32 != 0
+            && PPC_LOAD_U32(ctx.r3.u32 + 0x10) == kEsrbNoticeObject
             && settings::GetBool(settings::Id::HideEsrbDisclaimer);
     }
 }
@@ -78,7 +81,7 @@ namespace
 // Fixes that skip one of its calls check here.
 SB_HOOK(sub_8227FF60)
 {
-    if (HideEsrbNotice(ctx))
+    if (HideEsrbNotice(ctx, base))
         return;
     SB_ORIGINAL(sub_8227FF60)(ctx, base);
 }
@@ -509,7 +512,7 @@ namespace
         if (message != fe::kPadBack)
             return;
         const uint32_t screen = fe::ScreenOf(package);
-        if (fe::IsScreen(screen, kMainMenuScreen))
+        if (fe::IsScreen(screen, region::Addr(kMainMenuScreen)))
             s_pressedScreen = screen;
     }
 }
@@ -869,7 +872,8 @@ namespace
     constexpr uint32_t kControlsPlayer = 0x82A2C518;  // the controls screen's player
     // The HUD map builds (sub_822A9798, sub_82478F50) from HUD key table;
     // r9 = the player's config * 2 there.
-    constexpr uint32_t kHudMapBuildReturns[] = { 0x822A98C4, 0x82479058 };
+    constexpr uint32_t kHudMapBuildReturn = 0x822A98C4;
+    constexpr uint32_t kHudMapBuildReturn2 = 0x82479058;
     constexpr uint32_t kHudInputMap = 48;  // the HUD's input map; +628 its key
     constexpr uint32_t kInputMapKey = 628;
 
@@ -998,9 +1002,8 @@ namespace
 SB_HOOK(sub_8239D8F0)
 {
     if (s_modernLayouts)
-        for (uint32_t ret : kHudMapBuildReturns)
-            if (ctx.lr == region::Addr(ret))
-                ctx.r5.u64 = TraxOnRb(ctx.r9.u32 / 2) ? kHudMapTraxOnRb : kHudMap;
+        if (ctx.lr == region::Addr(kHudMapBuildReturn) || ctx.lr == region::Addr(kHudMapBuildReturn2))
+            ctx.r5.u64 = TraxOnRb(ctx.r9.u32 / 2) ? kHudMapTraxOnRb : kHudMap;
     t_building = s_modernLayouts ? OverrideForCollection(ctx.r5.u32) : -1;
     if (t_building >= 0)
         BuildOverrideData(base);  // here: the guest heap isn't up at boot
