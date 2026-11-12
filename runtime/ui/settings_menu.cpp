@@ -19,7 +19,7 @@
 #include <apu/audio.h>       // the 7.1 Speakers row's note: the output's channels
 #include <game/language.h>  // the Language row's note: what the installed files give
 #include <gpu/renderer.h>    // Internal Resolution's labels: what each entry renders now
-#include <region/region.h>   // the Fixes page: USA only for now
+#include <region/region.h>   // the ESRB row: USA only
 #include <report/report.h>
 #include <update/updater.h>  // the footer's "Update to v0.2.5"
 #include <user/settings.h>
@@ -105,8 +105,6 @@ namespace ui
                 return hid::wheel::Found();
             if (c == Category::Game)  // its one row, Language, isn't shown on iPhone and iPad
                 return !settings::Info(Id::GameLanguage).hidden;
-            if (c == Category::Fixes)  // USA only for now
-                return region::Current() == region::Release::Usa;
 #if defined(__APPLE__) && TARGET_OS_IOS
             if (c == Category::Controls)
                 return SDL_HasKeyboard();
