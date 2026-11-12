@@ -430,3 +430,11 @@ registers = ["r30"]
 name = "FeUnhandledButton"
 address = 0x822FDA58
 registers = ["r31", "r1"]
+
+# Polish save-system text: memcard/LOCALE_POLISH.LOC is a stub of
+# "LANGUAGE NOT SUPPORTED" lines; game/language.cpp swaps in the
+# Polish messages right after the file is read (sub_82289E60).
+[[midasm_hook]]
+name = "MemcardLocalePolish"
+address = 0x82289F60
+registers = ["r29"]
