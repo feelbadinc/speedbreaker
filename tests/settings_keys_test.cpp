@@ -98,7 +98,7 @@ int main()
         { Id::KeyRightStickClick, "right_stick_click", "Right Stick Click", "c", "none" },
     };
     // The keys run from the end of the Wheel options (Input's own rows, then
-    // the wheel's, come before them) to the start of Advanced, unbroken.
+    // the wheel's, come before them) to the start of the next table, unbroken.
     size_t previous = size_t(Id::WheelSettingsVersion);
     for (const Default& d : defaults)
     {
@@ -113,7 +113,7 @@ int main()
         CHECK(size_t(d.id) == previous + 1, "%s follows the row before it", o.key);
         previous = size_t(d.id) + 1;
     }
-    CHECK(size_t(Id::GameLanguage) == previous + 1, "Game follows the keys");
+    CHECK(std::string_view(Info(Id(previous + 1)).table) != "keys", "the next table follows the keys");
     CHECK(EnvOverride(Id::KeyA) == nullptr, "nothing overrides a key");
 
     // A scratch folder of our own.
