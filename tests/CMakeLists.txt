@@ -462,6 +462,9 @@ sb_test(key_map_test)
 # pedals, the steering curve, the pedals' travel, the buttons and paddles,
 # NFSMW_WHEEL_BUTTONS, and the force-feedback levels.
 sb_test(wheel_map_test)
+# The strict JSON reader under the update check, and its tree
+# (update/json.h).
+sb_test(json_test SOURCES ${RT}/update/json.cpp)
 # Check for Updates' logic: versions, release tags and the Windows beta
 # order, GitHub's JSON (a release and a list of them), this device's file and
 # complete releases, curl's output, the release notes, and every row of
