@@ -469,17 +469,19 @@ sb_test(json_test SOURCES ${RT}/update/json.cpp)
 # order, GitHub's JSON (a release and a list of them), this device's file and
 # complete releases, curl's output, the release notes, and every row of
 # update-now's "Which version is newer" table (update/check.cpp, self-contained).
-sb_test(update_check_test SOURCES ${RT}/update/check.cpp)
+sb_test(update_check_test SOURCES ${RT}/update/check.cpp ${RT}/update/json.cpp)
 # The startup check's toast, frame by frame: once per version, not over a
 # panel, and taken down for good once Settings opens (update/startup_toast.h).
 sb_test(startup_toast_test)
 # The transport by hand (not a test: it goes online; point it at a local
 # stand-in): Windows' WinHTTP, Linux's curl. update_fetch_probe.cpp says how.
 if(WIN32)
-    add_executable(update_fetch_probe ${CMAKE_CURRENT_SOURCE_DIR}/update_fetch_probe.cpp ${RT}/update/check.cpp ${RT}/update/fetch_windows.cpp)
+    add_executable(update_fetch_probe ${CMAKE_CURRENT_SOURCE_DIR}/update_fetch_probe.cpp
+        ${RT}/update/check.cpp ${RT}/update/json.cpp ${RT}/update/fetch_windows.cpp)
     target_link_libraries(update_fetch_probe PRIVATE winhttp)
 elseif(NOT APPLE)
-    add_executable(update_fetch_probe ${CMAKE_CURRENT_SOURCE_DIR}/update_fetch_probe.cpp ${RT}/update/check.cpp ${RT}/update/fetch_curl.cpp)
+    add_executable(update_fetch_probe ${CMAKE_CURRENT_SOURCE_DIR}/update_fetch_probe.cpp
+        ${RT}/update/check.cpp ${RT}/update/json.cpp ${RT}/update/fetch_curl.cpp)
     target_link_libraries(update_fetch_probe PRIVATE Threads::Threads)
 endif()
 if(TARGET update_fetch_probe)
