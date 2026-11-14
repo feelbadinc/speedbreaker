@@ -961,12 +961,12 @@ namespace ui
             }
             else if (o.id == Id::InGameTraxSkip)
             {
-                ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Skip with D-pad Up" : "Original behavior.");
+                ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Allow skip." : "Original behavior.");
                 RowDescription(o);
             }
             else if (o.id == Id::CarbonStyleRaceProgress)
             {
-                ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Carbon style." : "Original behavior.");
+                ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Carbon-style." : "Original behavior.");
                 RowDescription(o);
             }
             else if (o.id == Id::Nfsu2LoyaltyBonus)
