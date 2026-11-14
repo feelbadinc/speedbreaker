@@ -183,7 +183,8 @@ namespace settings
     enum class Type : uint8_t { Bool, Int, Float, Enum, Key };
     enum class Category : uint8_t
     {
-        Display, Graphics, Audio, Input, Wheel, Controls, Game, Fixes, Advanced, Count
+        Display, Graphics, Audio, Input, Wheel, Controls,
+        Game, Fixes, Mods, Advanced, Count
     };
     enum class Apply : uint8_t { Live, Restart };
 

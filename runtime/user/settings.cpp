@@ -1490,6 +1490,7 @@ namespace settings
         case Category::Wheel: return "Wheel";
         case Category::Game: return "Game";
         case Category::Fixes: return "Fixes";
+        case Category::Mods: return "Mods";
         case Category::Advanced: return "Advanced";
         default: return "";
         }
