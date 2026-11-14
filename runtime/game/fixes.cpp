@@ -20,70 +20,31 @@
 #include <ui/quit_game.h>
 #include <user/settings.h>
 
+// Shared by several fixes.
+namespace
+{
+    namespace fe = game::fe;
+
+    constexpr uint32_t kFeDatabase = 0x82A2C684;  // its +0x10: player 0 settings
+
+    uint32_t Load32(uint32_t address)
+    {
+        return *static_cast<const be<uint32_t>*>(g_memory.Translate(address));
+    }
+}
+
 namespace
 {
     // Black Edition Content: the game's Black Edition flag, a byte the code
     // only reads (0 in the base game). Ported from the Xenia patch by tuhana.
     constexpr uint32_t kBlackEditionFlag = 0x82A2CE06;
+}
 
-    // Unlock All Content: the game's debug UnlockAllThings byte;
-    // the unlock checks pass while it's set. RAM only, not saved.
-    // Ported from NFSMWExOpts (UnlockAllThings).
-    constexpr uint32_t kUnlockAllThings = 0x82A2CE00;
-
-    void ApplyUnlockAllThings()
-    {
-        bool on = settings::GetBool(settings::Id::UnlockAllThings);
-        *static_cast<uint8_t*>(g_memory.Translate(region::Addr(kUnlockAllThings))) = on;
-        fprintf(stderr, "[fixes] Unlock all content: %s\n", on ? "on" : "off");
-    }
-
-    // Fix Cop Spoiler Damage: COPSPORTHENCH and COPSPORTGHOST spoilers never get
-    // damaged, as the damage zone map lacks their slot (4). Four of its duplicate
-    // entries become spoiler entries. Spotted in NFSMW Unlimiter, done from scratch.
-    constexpr uint32_t kDamageZoneMap = 0x828F9E88;
-    constexpr uint32_t kCopSpoilerSlot = 4;
-    struct ZoneSlotEntry
-    {
-        uint32_t index;  // a duplicate entry: zone, slot
-        uint32_t zone;
-    };
-    constexpr ZoneSlotEntry kCopSpoilerEntries[] = {
-        { 5, 1 },   // FRONT, BODY (also entry 2)        -> REAR
-        { 38, 6 },  // LEFT, slot 17 (also entry 30)     -> LREAR
-        { 39, 7 },  // LEFT, slot 18 (also entry 29)     -> RREAR
-        { 64, 8 },  // LFRONT, slot 18 (also entry 61)   -> TOP
-    };
-
+namespace
+{
     // Fix Timebug: the sim clock (Sim::GetTime), a float each step is added to.
     constexpr uint32_t kSimClock = 0x82A153B8;
     bool s_fixTimebug = false;
-
-    // Hide ESRB Disclaimer: the USA build splash screen (sub_822B8500) plays
-    // "SHOW" on the "Game Experience May Change During Online Play" notice
-    // object; the other builds don't. "On" skips that call on the USA build.
-    // Matched by object name hash (FEObject +0x10), not return address: the
-    // PAL builds changed the splash code.
-    constexpr uint32_t kEsrbNoticeObject = 0xBDE7FA72;
-    constexpr uint32_t kShowScriptHash = 0x1CA7C0;  // "SHOW"
-
-    bool HideEsrbNotice(const PPCContext& ctx, uint8_t* base)
-    {
-        return region::Current() == region::Release::Usa
-            && ctx.r4.u32 == kShowScriptHash
-            && ctx.r3.u32 != 0
-            && PPC_LOAD_U32(ctx.r3.u32 + 0x10) == kEsrbNoticeObject
-            && settings::GetBool(settings::Id::HideEsrbDisclaimer);
-    }
-}
-
-// Plays a script on a screen object (r4: the script's hash).
-// Fixes that skip one of its calls check here.
-SB_HOOK(sub_8227FF60)
-{
-    if (HideEsrbNotice(ctx, base))
-        return;
-    SB_ORIGINAL(sub_8227FF60)(ctx, base);
 }
 
 // Fix Timebug: as the float sim clock grows, each 1/60 s step added to it
@@ -101,6 +62,32 @@ void SimClockStepped(PPCRegister& f1)
     exact = clock == written + float(f1.f64) ? exact + f1.f64 : double(clock);
     written = float(exact);
     clock = written;
+}
+
+// Fix Stuck Weather: cutscene time-of-day events set an overcast override
+// (>= 0 replaces the cycle) that is rarely cleared. Cleared in the FE.
+// Ported from X360 Stuff Pack (ResetOvercastOverrideAfterNIS).
+namespace
+{
+    constexpr uint32_t kOvercastOverride = 0x82900CCC;  // float, < 0 = off
+    constexpr uint32_t kGameFlowState = 0x82A39AD8;     // 3 = in FE
+}
+
+// Time-of-day lighting update (per frame).
+SB_HOOK(sub_822265D0)
+{
+    if (settings::GetBool(settings::Id::FixStuckWeather)
+        && PPC_LOAD_U32(region::Addr(kGameFlowState)) == 3)
+    {
+        const uint32_t at = region::Addr(kOvercastOverride);
+        auto& overcast = *static_cast<be<float>*>(g_memory.Translate(at));
+        if (overcast >= 0.0f)
+        {
+            fprintf(stderr, "[fixes] Stuck weather: cleared %.3f\n", float(overcast));
+            overcast = -1.0f;
+        }
+    }
+    SB_ORIGINAL(sub_822265D0)(ctx, base);
 }
 
 // Fix Busted Scenes: the arrest-scene chooser (sub_82135F98) falls through from
@@ -129,6 +116,52 @@ bool BustedSceneBeforeHeat3Pick(PPCRegister& r31, PPCRegister& r30)
 bool BustedSceneBeforeHeat4Pick(PPCRegister& r31, PPCRegister& r30)
 {
     return KeepBustedScene(r31.u32 < 4, r31, r30);
+}
+
+// Fix Leaderboard Refresh: the race leaderboard names/gaps countdown
+// (+552, 90) ticks once per 1/30 s of real time, as on a 30 fps 360.
+// Inspired by WFP (#1218). r26 = widget, before the game's decrement.
+void LeaderboardCountdown(PPCRegister& r26)
+{
+    struct Pace { uint64_t lastNs; double carry; };
+    static std::unordered_map<uint32_t, Pace> s_paces;  // per widget (split screen)
+    if (!settings::GetBool(settings::Id::FixLeaderboardRefresh))
+    {
+        s_paces.clear();
+        return;
+    }
+    uint64_t now = SDL_GetTicksNS();
+    Pace& pace = s_paces.try_emplace(r26.u32, Pace{ now, 0.0 }).first->second;
+    pace.carry += std::min((now - pace.lastNs) / 1e9, 0.25);  // pauses don't burst
+    pace.lastNs = now;
+    int ticks = int(pace.carry * 30.0);
+    pace.carry -= ticks / 30.0;
+
+    uint8_t* base = g_memory.base;
+    int32_t counter = int32_t(PPC_LOAD_U32(r26.u32 + 552));
+    if (counter > 0)
+        // the game takes 1 off next
+        PPC_STORE_U32(r26.u32 + 552, uint32_t(std::max(1, counter - ticks + 1)));
+}
+
+namespace
+{
+    // Fix Cop Spoiler Damage: COPSPORTHENCH and COPSPORTGHOST spoilers never get
+    // damaged, as the damage zone map lacks their slot (4). Four of its duplicate
+    // entries become spoiler entries. Spotted in NFSMW Unlimiter, done from scratch.
+    constexpr uint32_t kDamageZoneMap = 0x828F9E88;
+    constexpr uint32_t kCopSpoilerSlot = 4;
+    struct ZoneSlotEntry
+    {
+        uint32_t index;  // a duplicate entry: zone, slot
+        uint32_t zone;
+    };
+    constexpr ZoneSlotEntry kCopSpoilerEntries[] = {
+        { 5, 1 },   // FRONT, BODY (also entry 2)        -> REAR
+        { 38, 6 },  // LEFT, slot 17 (also entry 30)     -> LREAR
+        { 39, 7 },  // LEFT, slot 18 (also entry 29)     -> RREAR
+        { 64, 8 },  // LFRONT, slot 18 (also entry 61)   -> TOP
+    };
 }
 
 // Fix Pursuit Crashes: a roadblock is built from a list of cop cars, and
@@ -248,51 +281,6 @@ SB_HOOK(sub_822B8458)
         SB_ORIGINAL(sub_822B8458)(ctx, base);
 }
 
-// Subtitles: sub_822874C8 loads a movie's subtitles only when the game language
-// differs from the VO or the movie is a tutorial. The hooks (config/nfsmw.toml):
-// Force On skips both checks (ported from NFSMWExOpts ShowSubs),
-// Force Off the language one, so only tutorials keep them (ported from WFP).
-static bool SubtitlesMode(settings::Subtitles mode)
-{
-    return settings::Subtitles(settings::GetInt(settings::Id::Subtitles)) == mode;
-}
-
-bool SubtitlesForceOn()
-{
-    return SubtitlesMode(settings::Subtitles::ForceOn);
-}
-
-bool SubtitlesForceOff()
-{
-    return SubtitlesMode(settings::Subtitles::ForceOff);
-}
-
-// Hide Subtitle Background: hides the background behind the subtitle text.
-constexpr uint32_t kSubtitleBackground = 0x10;  // subtitles -> background object
-constexpr uint32_t kHideObject = 0x8227FE08;    // FEng hide
-
-// Subtitle message handler (r3 = subtitles), runs every frame of a movie.
-SB_HOOK(sub_822877A0)
-{
-    if (settings::GetBool(settings::Id::HideSubtitleBackground))
-    {
-        if (uint32_t background = PPC_LOAD_U32(ctx.r3.u32 + kSubtitleBackground))
-        {
-            PPCContext call = ctx;
-            call.r3.u64 = background;
-            g_memory.FindFunction(region::Addr(kHideObject))(call, base);
-        }
-    }
-    SB_ORIGINAL(sub_822877A0)(ctx, base);
-}
-
-// Hide Xbox Live Entry: the main menu builder (sub_82237900) skips
-// the Xbox Live row. Inspired by NFSMWExOpts (ShowOnline).
-bool HideXboxLiveEntry()
-{
-    return settings::GetBool(settings::Id::HideXboxLiveEntry);
-}
-
 // Longer Alias Names: the alias keyboard takes up to 15 characters (same
 // A-Z/0-9 set), and the alias load list keeps saves with names that long.
 // Ported from NFSMWExOpts (AllowLongerProfileNames).
@@ -311,383 +299,6 @@ void AliasNameLengthSet(PPCRegister& r5)
 bool AliasListNameFits(PPCRegister& r11)
 {
     return LongerAliasNames() && r11.u32 <= kLongAliasName;
-}
-
-// Carbon-Style Race Progress: 1-lap races show percentage. Ported
-// from NFSMWExOpts (ShowPercentOn1LapRaces). Race progress text
-// (sub_8229FDD8), r3 = race type (0 = no race), r31 = widget.
-bool RaceProgressLapText(PPCRegister& r3, PPCRegister& r31)
-{
-    uint8_t* base = g_memory.base;
-    return settings::GetBool(settings::Id::CarbonStyleRaceProgress)
-        && r3.u32 != 0 && PPC_LOAD_U32(r31.u32 + 60) == 1;  // lap total
-}
-
-// World Map During Events: skips the in-game map key's "event active"
-// check (sub_822A9798). Ported from NFSMWExOpts (WorldMapAnywhere).
-bool WorldMapEventCheck()
-{
-    return settings::GetBool(settings::Id::WorldMapAnywhere);
-}
-
-// Fix Leaderboard Refresh: the race leaderboard names/gaps countdown
-// (+552, 90) ticks once per 1/30 s of real time, as on a 30 fps 360.
-// Inspired by WFP (#1218). r26 = widget, before the game's decrement.
-void LeaderboardCountdown(PPCRegister& r26)
-{
-    struct Pace { uint64_t lastNs; double carry; };
-    static std::unordered_map<uint32_t, Pace> s_paces;  // per widget (split screen)
-    if (!settings::GetBool(settings::Id::FixLeaderboardRefresh))
-    {
-        s_paces.clear();
-        return;
-    }
-    uint64_t now = SDL_GetTicksNS();
-    Pace& pace = s_paces.try_emplace(r26.u32, Pace{ now, 0.0 }).first->second;
-    pace.carry += std::min((now - pace.lastNs) / 1e9, 0.25);  // pauses don't burst
-    pace.lastNs = now;
-    int ticks = int(pace.carry * 30.0);
-    pace.carry -= ticks / 30.0;
-
-    uint8_t* base = g_memory.base;
-    int32_t counter = int32_t(PPC_LOAD_U32(r26.u32 + 552));
-    if (counter > 0)
-        // the game takes 1 off next
-        PPC_STORE_U32(r26.u32 + 552, uint32_t(std::max(1, counter - ticks + 1)));
-}
-
-// Skip EA Trax In-Game: Engage Event (D-pad up) plays the next track, in free
-// roam when there's no event to engage, in races always; the standings (race
-// or pursuit event) move to D-pad Down. Uses the menu next-song function with
-// its "in the menus" check passed. Inspired by NFSMWExOpts (SkipTrackAnywhere).
-namespace
-{
-    constexpr uint32_t kNextSong = 0x822862A0;
-    constexpr uint32_t kNotifyChyron = 0x82203438;    // shows the EA Trax banner
-    constexpr uint32_t kTraxSlot = 0x150;             // the music object's slot ...
-    constexpr uint32_t kSlotSongs = 0x82A327C0;       // ... its song: slot * 24 here
-
-    // The banner screen waits 5s in game (ticks at 4000Hz) from its start time.
-    constexpr uint32_t kTraxScreenName = 0x8206E47C;  // "EA_Trax.fng"
-    constexpr uint32_t kFindScreen = 0x822D7528;
-    constexpr uint32_t kScreenStart = 0x2C;
-    constexpr uint32_t kTicksNow = 0x82A399AC;
-    constexpr uint32_t kBannerWaitTicks = 5 * 4000;
-
-    // Race status: nonzero +0x1A28 in a race (free roam: 0).
-    constexpr uint32_t kRaceStatus = 0x82A2CB18;
-    constexpr uint32_t kRaceStatusMode = 0x1A28;
-    constexpr uint32_t kHudPursuitStandings = 0x2BC;  // Engage shows PostRace_Pursuit
-    constexpr uint32_t kActionEngage = 0x2E;
-    constexpr uint32_t kActionPadDown = 0x30;
-    constexpr uint32_t kActionNextSong = 0x33;
-
-    std::atomic<uint32_t> s_traxSong = 0;
-    std::atomic<uint32_t> s_chyronBaseline = 0;
-    std::atomic<bool> s_chyronPending = false;
-
-    // What stops Engage Event in pursuits; D-pad up in race checks it too.
-    constexpr uint32_t kPursuitCounts[] = { 0x82A2D848, 0x82A2D86C };
-    constexpr uint32_t kEngageBlocked = 0x82C5A261;
-
-    uint32_t Load32(uint32_t address)
-    {
-        return *static_cast<const be<uint32_t>*>(g_memory.Translate(address));
-    }
-
-    bool InRace()
-    {
-        const uint32_t status = Load32(region::Addr(kRaceStatus));
-        return status && Load32(status + kRaceStatusMode) != 0;
-    }
-
-    bool InPursuit()
-    {
-        for (uint32_t count : kPursuitCounts)
-            if (int32_t(Load32(region::Addr(count))) > 0)
-                return true;
-        const void* blocked = g_memory.Translate(region::Addr(kEngageBlocked));
-        return *static_cast<const uint8_t*>(blocked) != 0;
-    }
-
-    thread_local bool t_skipTrax = false;
-    thread_local bool t_skippingTrax = false;
-    thread_local bool t_traxOnRb = false;  // the HUD skips on RB, the D-pad stays
-
-    bool HudSkipsTraxOnRb(uint32_t hud);  // Modern Gamepad Layouts
-}
-
-void EngageAvailabilityChecked(PPCRegister& r8)
-{
-    if (r8.u32 == 0 && !t_traxOnRb)
-        t_skipTrax = true;
-}
-
-void HudActionDispatched(PPCRegister& r11, PPCRegister& r28)
-{
-    if (!settings::GetBool(settings::Id::InGameTraxSkip))
-        return;
-    t_traxOnRb = HudSkipsTraxOnRb(r28.u32);
-    if (r11.u32 == kActionNextSong && t_traxOnRb)
-    {
-        t_skipTrax = !InPursuit();
-        r11.u64 = 0;  // no action
-        return;
-    }
-    if ((r11.u32 != kActionEngage && r11.u32 != kActionPadDown) || t_traxOnRb)
-        return;
-    const uint8_t* pursuitStandings = static_cast<const uint8_t*>(
-        g_memory.Translate(r28.u32 + kHudPursuitStandings));
-    if (!InRace() && *pursuitStandings == 0)
-        return;
-    if (r11.u32 == kActionPadDown)
-    {
-        r11.u64 = kActionEngage;  // the standings
-        return;
-    }
-    t_skipTrax = !InPursuit();
-    r11.u64 = 0;  // no action
-}
-
-void NextSongInMenus(PPCRegister& r11)
-{
-    if (t_skippingTrax)
-        r11.u64 = 1;
-}
-
-// HUD action handler (pause, Engage Event, D-pad left/right/down).
-SB_HOOK(sub_822A9798)
-{
-    t_skipTrax = false;
-    t_traxOnRb = false;
-    SB_ORIGINAL(sub_822A9798)(ctx, base);
-    const bool skip = t_skipTrax;
-    t_skipTrax = false;
-    if (!skip || !settings::GetBool(settings::Id::InGameTraxSkip))
-        return;
-    PPCContext call = ctx;
-    t_skippingTrax = true;
-    g_memory.FindFunction(region::Addr(kNextSong))(call, base);
-    t_skippingTrax = false;
-    s_chyronBaseline = s_traxSong.load();
-    s_chyronPending = true;
-}
-
-// The EA Trax music object update (r3: the object). Once the skip
-// happens, shows the banner at once, as LS in the menus does.
-SB_HOOK(sub_82202968)
-{
-    const uint32_t trax = ctx.r3.u32;
-    SB_ORIGINAL(sub_82202968)(ctx, base);
-    const uint32_t slot = PPC_LOAD_U32(trax + kTraxSlot);
-    const uint32_t songs = region::Addr(kSlotSongs);
-    const uint32_t song = slot < 64 ? PPC_LOAD_U32(songs + slot * 24) : ~0u;
-    s_traxSong = song;
-    if (!s_chyronPending || song == s_chyronBaseline)
-        return;
-    s_chyronPending = false;
-    PPCContext call = ctx;
-    call.r3.u64 = trax;
-    g_memory.FindFunction(region::Addr(kNotifyChyron))(call, base);
-    call.r3.u64 = region::Addr(kTraxScreenName);
-    g_memory.FindFunction(region::Addr(kFindScreen))(call, base);
-    const uint32_t now = PPC_LOAD_U32(region::Addr(kTicksNow));
-    if (const uint32_t screen = call.r3.u32)
-        PPC_STORE_U32(screen + kScreenStart, now - kBannerWaitTicks);
-}
-
-// Main Menu Quit: B on the main menu (unused there) opens the Yes/No
-// dialog with QUIT_GAME; Yes quits as Settings > Quit Game does.
-namespace
-{
-    namespace fe = game::fe;
-
-    constexpr uint32_t kMainMenuScreen = 0x82079AAC;  // MainMenu's screen vtable
-    constexpr uint32_t kQuitYes = fe::Hash("SB_QUIT_GAME_YES");
-
-    uint32_t s_pressedScreen = 0;  // B was pressed in the main menu root
-
-    void NoteMainMenuBack(uint32_t message, uint32_t package)
-    {
-        if (message != fe::kPadBack)
-            return;
-        const uint32_t screen = fe::ScreenOf(package);
-        if (fe::IsScreen(screen, region::Addr(kMainMenuScreen)))
-            s_pressedScreen = screen;
-    }
-}
-
-// The main menu's message handler (r3: the screen, r4: the message).
-SB_HOOK(sub_82237498)
-{
-    const uint32_t screen = ctx.r3.u32;
-    const uint32_t message = ctx.r4.u32;
-    SB_ORIGINAL(sub_82237498)(ctx, base);
-    if (screen == s_pressedScreen)
-    {
-        s_pressedScreen = 0;
-        fe::ShowYesNoDialog(ctx, base, screen,
-            fe::Hash("QUIT_GAME"), kQuitYes, fe::Hash("SB_QUIT_GAME_NO"));
-    }
-    else if (message == kQuitYes)
-    {
-        SDL_Event e{ .type = SDL_EVENT_QUIT };  // SDL stamps the time
-        if (SDL_PushEvent(&e))
-            fprintf(stderr, "[fixes] Main menu quit: quitting\n");
-    }
-}
-
-// Mirror in Chase Cams: other releases show the mirror only in bumper and hood.
-// Hides the 3D mirror and the radar's mirror frame; idle when the mirror is off.
-// Reverse of NFSMWExOpts (EnableCameras, the rearview mirror addition).
-namespace
-{
-    constexpr uint32_t kFeDatabase = 0x82A2C684;  // its +0x10: player 0 settings
-    constexpr uint32_t kSettingsCamera = 0x94;    // 0 bumper, 1 hood
-
-    bool HideMirrorForCamera(uint8_t* base)
-    {
-        if (settings::MirrorInChaseCams(settings::GetInt(settings::Id::MirrorInChaseCams))
-            != settings::MirrorInChaseCams::Hidden)
-            return false;
-        const uint32_t db = PPC_LOAD_U32(region::Addr(kFeDatabase));
-        const uint32_t player = db ? PPC_LOAD_U32(db + 0x10) : 0;
-        return player && PPC_LOAD_U32(player + kSettingsCamera) >= 2;
-    }
-}
-
-SB_HOOK(sub_822AA818)
-{
-    SB_ORIGINAL(sub_822AA818)(ctx, base);
-    if (ctx.r3.u32 != 0 && HideMirrorForCamera(base))
-        ctx.r3.u64 = 0;
-}
-
-// NFS:U2 Loyalty Bonus: at a new Career this function shows the "thanks for
-// playing NFS:U2" dialog and adds $10k when its save-found flag is set; on
-// the 360 nothing sets it. Inspired by NFSMWExOpts (AwardedCash).
-SB_HOOK(sub_8228A790)
-{
-    constexpr uint32_t kSaveFound = 44;
-    constexpr uint32_t kCareerFlags = 0xB0 + 4;  // bit 1: bonus handled
-    const uint32_t db = PPC_LOAD_U32(region::Addr(kFeDatabase));
-    const uint32_t player = db ? PPC_LOAD_U32(db + 0x10) : 0;
-    const uint32_t object = ctx.r3.u32;
-    const uint8_t found = PPC_LOAD_U8(object + kSaveFound);
-    if (player && !(PPC_LOAD_U32(player + kCareerFlags) & 2)
-        && settings::GetBool(settings::Id::Nfsu2LoyaltyBonus))
-    {
-        PPC_STORE_U8(object + kSaveFound, 1);
-        fprintf(stderr, "[fixes] NFSU2 loyalty bonus: $10,000 granted\n");
-    }
-    SB_ORIGINAL(sub_8228A790)(ctx, base);
-    PPC_STORE_U8(object + kSaveFound, found);  // no stale flag for the next Career
-}
-
-// Max Performance in Career: skips the button's "career mode" check in
-// the customize menu's input handler and button setup; the Performance
-// screen check stays. Ported from NFSMWExOpts (EnableMaxPerformanceOnShop).
-bool MaxPerformanceCareerCheck()
-{
-    return settings::GetBool(settings::Id::MaxPerformanceOnShop);
-}
-
-namespace
-{
-    constexpr uint32_t kCareerFlags = 300;          // FEDatabase: bit 0 = Career
-    constexpr uint32_t kCategory = 332;             // screen: category
-    constexpr uint32_t kPerformanceCategory = 0x802;
-    constexpr uint32_t kScreenPackage = 16;
-    constexpr uint32_t kMaxPerfButton = 0x5AEC8D91;
-    constexpr uint32_t kFindObject = 0x8227FD58;    // (package, hash)
-    constexpr uint32_t kSetPosition = 0x823018D8;   // (object, xyz*)
-    constexpr uint32_t kObjectData = 44;            // object -> data; +28: xyz
-    constexpr float kRowsDown = 100.0f;             // Cash/Total row -> below B/A
-    uint32_t s_movedObject = 0;
-    float s_movedY = 0.0f;
-}
-
-// In Career the button sits under the Cash/Total box; move it to its own row
-// below the A/B hints. Ported from NFSMWExOpts (EnableMaxPerformanceOnShop).
-SB_HOOK(sub_82575C80)
-{
-    const uint32_t screen = ctx.r3.u32;
-    SB_ORIGINAL(sub_82575C80)(ctx, base);
-    if (!settings::GetBool(settings::Id::MaxPerformanceOnShop))
-        return;
-    const uint32_t db = PPC_LOAD_U32(region::Addr(kFeDatabase));
-    if (!db || !(PPC_LOAD_U32(db + kCareerFlags) & 1)
-        || PPC_LOAD_U32(screen + kCategory) != kPerformanceCategory)
-        return;
-
-    PPCContext call = ctx;
-    call.r3.u64 = PPC_LOAD_U32(screen + kScreenPackage);
-    call.r4.u64 = kMaxPerfButton;
-    g_memory.FindFunction(region::Addr(kFindObject))(call, base);
-    const uint32_t object = call.r3.u32;
-    if (!object)
-        return;
-    const uint32_t pos = PPC_LOAD_U32(object + kObjectData) + 28;
-    const float y = std::bit_cast<float>(uint32_t(PPC_LOAD_U32(pos + 4)));
-    if (object == s_movedObject && y == s_movedY)  // setup ran again
-        return;
-    s_movedObject = object;
-    s_movedY = y + kRowsDown;
-
-    // xyz on a fresh stack frame below the caller.
-    call = ctx;
-    call.r1.u32 = ctx.r1.u32 - 0x80;
-    PPC_STORE_U32(call.r1.u32, ctx.r1.u32);  // back chain
-    const uint32_t xyz = call.r1.u32 + 0x50;
-    PPC_STORE_U32(xyz, PPC_LOAD_U32(pos));
-    PPC_STORE_U32(xyz + 4, std::bit_cast<uint32_t>(s_movedY));
-    PPC_STORE_U32(xyz + 8, PPC_LOAD_U32(pos + 8));
-    call.r3.u64 = object;
-    call.r4.u64 = xyz;
-    g_memory.FindFunction(region::Addr(kSetPosition))(call, base);
-}
-
-// Show HUD on Look Back: the HUD stays up; the mirror keeps its own
-// lookback check. Ported from NFSMWExOpts (ShowHUDOnLookBack).
-namespace
-{
-    // View table, 112 bytes per view. View 1 is player 0 (the first
-    // player's) screen; its action list sits at +180 (view 1 + 68).
-    constexpr uint32_t kViews = 0x82A38070;
-    constexpr uint32_t kActionType = 12, kDriveAction = 1;  // handler type; 1 = driving
-    constexpr uint32_t kLookback = 177;                     // byte: holding lookback
-
-    bool ShowHudOnLookback() { return settings::GetBool(settings::Id::ShowHudOnLookback); }
-
-    // Player 0's drive action lookback flag, as the mirror check reads it.
-    bool Player0LookingBack(uint8_t* base)
-    {
-        const uint32_t head = region::Addr(kViews) + 180;
-        const uint32_t node = PPC_LOAD_U32(head);
-        if (node == head || node == 0)
-            return false;
-        const uint32_t action = node - 4;
-        return PPC_LOAD_U32(action + kActionType) == kDriveAction
-            && PPC_LOAD_U8(action + kLookback) != 0;
-    }
-}
-
-// HUD visibility builder (sub_822A9DC0), r3 = the view's lookback flag.
-void HudLookbackRead(PPCRegister& r3)
-{
-    if (ShowHudOnLookback())
-        r3.u64 = 0;
-}
-
-// Radar update (sub_82297840), r10 = the mirror option. Drops the mirror
-// frame when the mirror is hidden (chase cam, or looking back with the HUD up).
-void RadarMirrorOptionRead(PPCRegister& r10)
-{
-    if (r10.u32 == 0)
-        return;
-    if (HideMirrorForCamera(g_memory.base)
-        || (ShowHudOnLookback() && Player0LookingBack(g_memory.base)))
-        r10.u64 = 0;
 }
 
 // Modern Gamepad Layouts: all 10 control types get modernized layouts,
@@ -1075,6 +686,362 @@ SB_HOOK(sub_822BA768)
     WithTypeLabels(base, 0, [&] { SB_ORIGINAL(sub_822BA768)(ctx, base); });
 }
 
+// Skip EA Trax In-Game: Engage Event (D-pad up) plays the next track, in free
+// roam when there's no event to engage, in races always; the standings (race
+// or pursuit event) move to D-pad Down. Uses the menu next-song function with
+// its "in the menus" check passed. Inspired by NFSMWExOpts (SkipTrackAnywhere).
+namespace
+{
+    constexpr uint32_t kNextSong = 0x822862A0;
+    constexpr uint32_t kNotifyChyron = 0x82203438;    // shows the EA Trax banner
+    constexpr uint32_t kTraxSlot = 0x150;             // the music object's slot ...
+    constexpr uint32_t kSlotSongs = 0x82A327C0;       // ... its song: slot * 24 here
+
+    // The banner screen waits 5s in game (ticks at 4000Hz) from its start time.
+    constexpr uint32_t kTraxScreenName = 0x8206E47C;  // "EA_Trax.fng"
+    constexpr uint32_t kFindScreen = 0x822D7528;
+    constexpr uint32_t kScreenStart = 0x2C;
+    constexpr uint32_t kTicksNow = 0x82A399AC;
+    constexpr uint32_t kBannerWaitTicks = 5 * 4000;
+
+    // Race status: nonzero +0x1A28 in a race (free roam: 0).
+    constexpr uint32_t kRaceStatus = 0x82A2CB18;
+    constexpr uint32_t kRaceStatusMode = 0x1A28;
+    constexpr uint32_t kHudPursuitStandings = 0x2BC;  // Engage shows PostRace_Pursuit
+    constexpr uint32_t kActionEngage = 0x2E;
+    constexpr uint32_t kActionPadDown = 0x30;
+    constexpr uint32_t kActionNextSong = 0x33;
+
+    std::atomic<uint32_t> s_traxSong = 0;
+    std::atomic<uint32_t> s_chyronBaseline = 0;
+    std::atomic<bool> s_chyronPending = false;
+
+    // What stops Engage Event in pursuits; D-pad up in race checks it too.
+    constexpr uint32_t kPursuitCounts[] = { 0x82A2D848, 0x82A2D86C };
+    constexpr uint32_t kEngageBlocked = 0x82C5A261;
+
+    bool InRace()
+    {
+        const uint32_t status = Load32(region::Addr(kRaceStatus));
+        return status && Load32(status + kRaceStatusMode) != 0;
+    }
+
+    bool InPursuit()
+    {
+        for (uint32_t count : kPursuitCounts)
+            if (int32_t(Load32(region::Addr(count))) > 0)
+                return true;
+        const void* blocked = g_memory.Translate(region::Addr(kEngageBlocked));
+        return *static_cast<const uint8_t*>(blocked) != 0;
+    }
+
+    thread_local bool t_skipTrax = false;
+    thread_local bool t_skippingTrax = false;
+    thread_local bool t_traxOnRb = false;  // the HUD skips on RB, the D-pad stays
+}
+
+void EngageAvailabilityChecked(PPCRegister& r8)
+{
+    if (r8.u32 == 0 && !t_traxOnRb)
+        t_skipTrax = true;
+}
+
+void HudActionDispatched(PPCRegister& r11, PPCRegister& r28)
+{
+    if (!settings::GetBool(settings::Id::InGameTraxSkip))
+        return;
+    t_traxOnRb = HudSkipsTraxOnRb(r28.u32);
+    if (r11.u32 == kActionNextSong && t_traxOnRb)
+    {
+        t_skipTrax = !InPursuit();
+        r11.u64 = 0;  // no action
+        return;
+    }
+    if ((r11.u32 != kActionEngage && r11.u32 != kActionPadDown) || t_traxOnRb)
+        return;
+    const uint8_t* pursuitStandings = static_cast<const uint8_t*>(
+        g_memory.Translate(r28.u32 + kHudPursuitStandings));
+    if (!InRace() && *pursuitStandings == 0)
+        return;
+    if (r11.u32 == kActionPadDown)
+    {
+        r11.u64 = kActionEngage;  // the standings
+        return;
+    }
+    t_skipTrax = !InPursuit();
+    r11.u64 = 0;  // no action
+}
+
+void NextSongInMenus(PPCRegister& r11)
+{
+    if (t_skippingTrax)
+        r11.u64 = 1;
+}
+
+// HUD action handler (pause, Engage Event, D-pad left/right/down).
+SB_HOOK(sub_822A9798)
+{
+    t_skipTrax = false;
+    t_traxOnRb = false;
+    SB_ORIGINAL(sub_822A9798)(ctx, base);
+    const bool skip = t_skipTrax;
+    t_skipTrax = false;
+    if (!skip || !settings::GetBool(settings::Id::InGameTraxSkip))
+        return;
+    PPCContext call = ctx;
+    t_skippingTrax = true;
+    g_memory.FindFunction(region::Addr(kNextSong))(call, base);
+    t_skippingTrax = false;
+    s_chyronBaseline = s_traxSong.load();
+    s_chyronPending = true;
+}
+
+// The EA Trax music object update (r3: the object). Once the skip
+// happens, shows the banner at once, as LS in the menus does.
+SB_HOOK(sub_82202968)
+{
+    const uint32_t trax = ctx.r3.u32;
+    SB_ORIGINAL(sub_82202968)(ctx, base);
+    const uint32_t slot = PPC_LOAD_U32(trax + kTraxSlot);
+    const uint32_t songs = region::Addr(kSlotSongs);
+    const uint32_t song = slot < 64 ? PPC_LOAD_U32(songs + slot * 24) : ~0u;
+    s_traxSong = song;
+    if (!s_chyronPending || song == s_chyronBaseline)
+        return;
+    s_chyronPending = false;
+    PPCContext call = ctx;
+    call.r3.u64 = trax;
+    g_memory.FindFunction(region::Addr(kNotifyChyron))(call, base);
+    call.r3.u64 = region::Addr(kTraxScreenName);
+    g_memory.FindFunction(region::Addr(kFindScreen))(call, base);
+    const uint32_t now = PPC_LOAD_U32(region::Addr(kTicksNow));
+    if (const uint32_t screen = call.r3.u32)
+        PPC_STORE_U32(screen + kScreenStart, now - kBannerWaitTicks);
+}
+
+// Max Performance in Career: skips the button's "career mode" check in
+// the customize menu's input handler and button setup; the Performance
+// screen check stays. Ported from NFSMWExOpts (EnableMaxPerformanceOnShop).
+bool MaxPerformanceCareerCheck()
+{
+    return settings::GetBool(settings::Id::MaxPerformanceOnShop);
+}
+
+namespace
+{
+    constexpr uint32_t kCareerFlags = 300;          // FEDatabase: bit 0 = Career
+    constexpr uint32_t kCategory = 332;             // screen: category
+    constexpr uint32_t kPerformanceCategory = 0x802;
+    constexpr uint32_t kScreenPackage = 16;
+    constexpr uint32_t kMaxPerfButton = 0x5AEC8D91;
+    constexpr uint32_t kFindObject = 0x8227FD58;    // (package, hash)
+    constexpr uint32_t kSetPosition = 0x823018D8;   // (object, xyz*)
+    constexpr uint32_t kObjectData = 44;            // object -> data; +28: xyz
+    constexpr float kRowsDown = 100.0f;             // Cash/Total row -> below B/A
+    uint32_t s_movedObject = 0;
+    float s_movedY = 0.0f;
+}
+
+// In Career the button sits under the Cash/Total box; move it to its own row
+// below the A/B hints. Ported from NFSMWExOpts (EnableMaxPerformanceOnShop).
+SB_HOOK(sub_82575C80)
+{
+    const uint32_t screen = ctx.r3.u32;
+    SB_ORIGINAL(sub_82575C80)(ctx, base);
+    if (!settings::GetBool(settings::Id::MaxPerformanceOnShop))
+        return;
+    const uint32_t db = PPC_LOAD_U32(region::Addr(kFeDatabase));
+    if (!db || !(PPC_LOAD_U32(db + kCareerFlags) & 1)
+        || PPC_LOAD_U32(screen + kCategory) != kPerformanceCategory)
+        return;
+
+    PPCContext call = ctx;
+    call.r3.u64 = PPC_LOAD_U32(screen + kScreenPackage);
+    call.r4.u64 = kMaxPerfButton;
+    g_memory.FindFunction(region::Addr(kFindObject))(call, base);
+    const uint32_t object = call.r3.u32;
+    if (!object)
+        return;
+    const uint32_t pos = PPC_LOAD_U32(object + kObjectData) + 28;
+    const float y = std::bit_cast<float>(uint32_t(PPC_LOAD_U32(pos + 4)));
+    if (object == s_movedObject && y == s_movedY)  // setup ran again
+        return;
+    s_movedObject = object;
+    s_movedY = y + kRowsDown;
+
+    // xyz on a fresh stack frame below the caller.
+    call = ctx;
+    call.r1.u32 = ctx.r1.u32 - 0x80;
+    PPC_STORE_U32(call.r1.u32, ctx.r1.u32);  // back chain
+    const uint32_t xyz = call.r1.u32 + 0x50;
+    PPC_STORE_U32(xyz, PPC_LOAD_U32(pos));
+    PPC_STORE_U32(xyz + 4, std::bit_cast<uint32_t>(s_movedY));
+    PPC_STORE_U32(xyz + 8, PPC_LOAD_U32(pos + 8));
+    call.r3.u64 = object;
+    call.r4.u64 = xyz;
+    g_memory.FindFunction(region::Addr(kSetPosition))(call, base);
+}
+
+// World Map During Events: skips the in-game map key's "event active"
+// check (sub_822A9798). Ported from NFSMWExOpts (WorldMapAnywhere).
+bool WorldMapEventCheck()
+{
+    return settings::GetBool(settings::Id::WorldMapAnywhere);
+}
+
+// Carbon-Style Race Progress: 1-lap races show percentage. Ported
+// from NFSMWExOpts (ShowPercentOn1LapRaces). Race progress text
+// (sub_8229FDD8), r3 = race type (0 = no race), r31 = widget.
+bool RaceProgressLapText(PPCRegister& r3, PPCRegister& r31)
+{
+    uint8_t* base = g_memory.base;
+    return settings::GetBool(settings::Id::CarbonStyleRaceProgress)
+        && r3.u32 != 0 && PPC_LOAD_U32(r31.u32 + 60) == 1;  // lap total
+}
+
+// Main Menu Quit: B on the main menu (unused there) opens the Yes/No
+// dialog with QUIT_GAME; Yes quits as Settings > Quit Game does.
+namespace
+{
+    constexpr uint32_t kMainMenuScreen = 0x82079AAC;  // MainMenu's screen vtable
+    constexpr uint32_t kQuitYes = fe::Hash("SB_QUIT_GAME_YES");
+
+    uint32_t s_pressedScreen = 0;  // B was pressed in the main menu root
+
+    void NoteMainMenuBack(uint32_t message, uint32_t package)
+    {
+        if (message != fe::kPadBack)
+            return;
+        const uint32_t screen = fe::ScreenOf(package);
+        if (fe::IsScreen(screen, region::Addr(kMainMenuScreen)))
+            s_pressedScreen = screen;
+    }
+}
+
+// The main menu's message handler (r3: the screen, r4: the message).
+SB_HOOK(sub_82237498)
+{
+    const uint32_t screen = ctx.r3.u32;
+    const uint32_t message = ctx.r4.u32;
+    SB_ORIGINAL(sub_82237498)(ctx, base);
+    if (screen == s_pressedScreen)
+    {
+        s_pressedScreen = 0;
+        fe::ShowYesNoDialog(ctx, base, screen,
+            fe::Hash("QUIT_GAME"), kQuitYes, fe::Hash("SB_QUIT_GAME_NO"));
+    }
+    else if (message == kQuitYes)
+    {
+        SDL_Event e{ .type = SDL_EVENT_QUIT };  // SDL stamps the time
+        if (SDL_PushEvent(&e))
+            fprintf(stderr, "[fixes] Main menu quit: quitting\n");
+    }
+}
+
+// Hide Xbox Live Entry: the main menu builder (sub_82237900) skips
+// the Xbox Live row. Inspired by NFSMWExOpts (ShowOnline).
+bool HideXboxLiveEntry()
+{
+    return settings::GetBool(settings::Id::HideXboxLiveEntry);
+}
+
+namespace
+{
+    // Hide ESRB Disclaimer: the USA build splash screen (sub_822B8500) plays
+    // "SHOW" on the "Game Experience May Change During Online Play" notice
+    // object; the other builds don't. "On" skips that call on the USA build.
+    // Matched by object name hash (FEObject +0x10), not return address: the
+    // PAL builds changed the splash code.
+    constexpr uint32_t kEsrbNoticeObject = 0xBDE7FA72;
+    constexpr uint32_t kShowScriptHash = 0x1CA7C0;  // "SHOW"
+
+    bool HideEsrbNotice(const PPCContext& ctx, uint8_t* base)
+    {
+        return region::Current() == region::Release::Usa
+            && ctx.r4.u32 == kShowScriptHash
+            && ctx.r3.u32 != 0
+            && PPC_LOAD_U32(ctx.r3.u32 + 0x10) == kEsrbNoticeObject
+            && settings::GetBool(settings::Id::HideEsrbDisclaimer);
+    }
+}
+
+// Plays a script on a screen object (r4: the script's hash).
+// Fixes that skip one of its calls check here.
+SB_HOOK(sub_8227FF60)
+{
+    if (HideEsrbNotice(ctx, base))
+        return;
+    SB_ORIGINAL(sub_8227FF60)(ctx, base);
+}
+
+// Show HUD on Look Back: the HUD stays up; the mirror keeps its own
+// lookback check. Ported from NFSMWExOpts (ShowHUDOnLookBack).
+namespace
+{
+    // View table, 112 bytes per view. View 1 is player 0 (the first
+    // player's) screen; its action list sits at +180 (view 1 + 68).
+    constexpr uint32_t kViews = 0x82A38070;
+    constexpr uint32_t kActionType = 12, kDriveAction = 1;  // handler type; 1 = driving
+    constexpr uint32_t kLookback = 177;                     // byte: holding lookback
+
+    bool ShowHudOnLookback() { return settings::GetBool(settings::Id::ShowHudOnLookback); }
+
+    // Player 0's drive action lookback flag, as the mirror check reads it.
+    bool Player0LookingBack(uint8_t* base)
+    {
+        const uint32_t head = region::Addr(kViews) + 180;
+        const uint32_t node = PPC_LOAD_U32(head);
+        if (node == head || node == 0)
+            return false;
+        const uint32_t action = node - 4;
+        return PPC_LOAD_U32(action + kActionType) == kDriveAction
+            && PPC_LOAD_U8(action + kLookback) != 0;
+    }
+}
+
+// HUD visibility builder (sub_822A9DC0), r3 = the view's lookback flag.
+void HudLookbackRead(PPCRegister& r3)
+{
+    if (ShowHudOnLookback())
+        r3.u64 = 0;
+}
+
+// Mirror in Chase Cams: other releases show the mirror only in bumper and hood.
+// Hides the 3D mirror and the radar's mirror frame; idle when the mirror is off.
+// Reverse of NFSMWExOpts (EnableCameras, the rearview mirror addition).
+namespace
+{
+    constexpr uint32_t kSettingsCamera = 0x94;    // 0 bumper, 1 hood
+
+    bool HideMirrorForCamera(uint8_t* base)
+    {
+        if (settings::MirrorInChaseCams(settings::GetInt(settings::Id::MirrorInChaseCams))
+            != settings::MirrorInChaseCams::Hidden)
+            return false;
+        const uint32_t db = PPC_LOAD_U32(region::Addr(kFeDatabase));
+        const uint32_t player = db ? PPC_LOAD_U32(db + 0x10) : 0;
+        return player && PPC_LOAD_U32(player + kSettingsCamera) >= 2;
+    }
+}
+
+SB_HOOK(sub_822AA818)
+{
+    SB_ORIGINAL(sub_822AA818)(ctx, base);
+    if (ctx.r3.u32 != 0 && HideMirrorForCamera(base))
+        ctx.r3.u64 = 0;
+}
+
+// Radar update (sub_82297840), r10 = the mirror option. Drops the mirror
+// frame when the mirror is hidden (chase cam, or looking back with the HUD up).
+void RadarMirrorOptionRead(PPCRegister& r10)
+{
+    if (r10.u32 == 0)
+        return;
+    if (HideMirrorForCamera(g_memory.base)
+        || (ShowHudOnLookback() && Player0LookingBack(g_memory.base)))
+        r10.u64 = 0;
+}
+
 // Tips on Loading Screens: tip choice of the loading screen picker.
 // 28 = plain Loading.fng (27 = controller picture, else a tip idx).
 SB_HOOK(sub_822B9980)
@@ -1086,17 +1053,91 @@ SB_HOOK(sub_822B9980)
         SB_ORIGINAL(sub_822B9980)(ctx, base);
 }
 
+// Hide Subtitle Background: hides the background behind the subtitle text.
+constexpr uint32_t kSubtitleBackground = 0x10;  // subtitles -> background object
+constexpr uint32_t kHideObject = 0x8227FE08;    // FEng hide
+
+// Subtitle message handler (r3 = subtitles), runs every frame of a movie.
+SB_HOOK(sub_822877A0)
+{
+    if (settings::GetBool(settings::Id::HideSubtitleBackground))
+    {
+        if (uint32_t background = PPC_LOAD_U32(ctx.r3.u32 + kSubtitleBackground))
+        {
+            PPCContext call = ctx;
+            call.r3.u64 = background;
+            g_memory.FindFunction(region::Addr(kHideObject))(call, base);
+        }
+    }
+    SB_ORIGINAL(sub_822877A0)(ctx, base);
+}
+
+// Subtitles: sub_822874C8 loads a movie's subtitles only when the game language
+// differs from the VO or the movie is a tutorial. The hooks (config/nfsmw.toml):
+// Force On skips both checks (ported from NFSMWExOpts ShowSubs),
+// Force Off the language one, so only tutorials keep them (ported from WFP).
+static bool SubtitlesMode(settings::Subtitles mode)
+{
+    return settings::Subtitles(settings::GetInt(settings::Id::Subtitles)) == mode;
+}
+
+bool SubtitlesForceOn()
+{
+    return SubtitlesMode(settings::Subtitles::ForceOn);
+}
+
+bool SubtitlesForceOff()
+{
+    return SubtitlesMode(settings::Subtitles::ForceOff);
+}
+
+// NFS:U2 Loyalty Bonus: at a new Career this function shows the "thanks for
+// playing NFS:U2" dialog and adds $10k when its save-found flag is set; on
+// the 360 nothing sets it. Inspired by NFSMWExOpts (AwardedCash).
+SB_HOOK(sub_8228A790)
+{
+    constexpr uint32_t kSaveFound = 44;
+    constexpr uint32_t kCareerFlags = 0xB0 + 4;  // bit 1: bonus handled
+    const uint32_t db = PPC_LOAD_U32(region::Addr(kFeDatabase));
+    const uint32_t player = db ? PPC_LOAD_U32(db + 0x10) : 0;
+    const uint32_t object = ctx.r3.u32;
+    const uint8_t found = PPC_LOAD_U8(object + kSaveFound);
+    if (player && !(PPC_LOAD_U32(player + kCareerFlags) & 2)
+        && settings::GetBool(settings::Id::Nfsu2LoyaltyBonus))
+    {
+        PPC_STORE_U8(object + kSaveFound, 1);
+        fprintf(stderr, "[fixes] NFSU2 loyalty bonus: $10,000 granted\n");
+    }
+    SB_ORIGINAL(sub_8228A790)(ctx, base);
+    PPC_STORE_U8(object + kSaveFound, found);  // no stale flag for the next Career
+}
+
+namespace
+{
+    // Unlock All Content: the game's debug UnlockAllThings byte;
+    // the unlock checks pass while it's set. RAM only, not saved.
+    // Ported from NFSMWExOpts (UnlockAllThings).
+    constexpr uint32_t kUnlockAllThings = 0x82A2CE00;
+
+    void ApplyUnlockAllThings()
+    {
+        bool on = settings::GetBool(settings::Id::UnlockAllThings);
+        *static_cast<uint8_t*>(g_memory.Translate(region::Addr(kUnlockAllThings))) = on;
+        fprintf(stderr, "[fixes] Unlock all content: %s\n", on ? "on" : "off");
+    }
+}
+
 // Fixes that don't log when they act: announced at boot when
 // changed from the default, and whenever they are switched.
 namespace
 {
     constexpr settings::Id kAnnounced[] = {
-        settings::Id::CarbonStyleRaceProgress, settings::Id::FixLeaderboardRefresh,
-        settings::Id::HideSubtitleBackground, settings::Id::InGameTraxSkip,
-        settings::Id::LongerAliasNames, settings::Id::MaxPerformanceOnShop,
-        settings::Id::MirrorInChaseCams, settings::Id::ShowHudOnLookback,
-        settings::Id::Subtitles, settings::Id::TipsOnLoadscreens,
-        settings::Id::WorldMapAnywhere,
+        settings::Id::FixLeaderboardRefresh, settings::Id::LongerAliasNames,
+        settings::Id::InGameTraxSkip, settings::Id::MaxPerformanceOnShop,
+        settings::Id::WorldMapAnywhere, settings::Id::CarbonStyleRaceProgress,
+        settings::Id::ShowHudOnLookback, settings::Id::MirrorInChaseCams,
+        settings::Id::TipsOnLoadscreens, settings::Id::HideSubtitleBackground,
+        settings::Id::Subtitles,
     };
 
     const char* StateText(settings::Id id)
@@ -1136,23 +1177,16 @@ namespace fixes
                 }
         });
         (void)announceListener;
-        if (ui::quit::kOffered && settings::GetBool(settings::Id::MainMenuQuit))
-        {
-            fe::OnUnhandledButton(NoteMainMenuBack);
-            fprintf(stderr, "[fixes] Main menu quit: on\n");
-        }
         if (settings::GetBool(settings::Id::BlackEditionContent))
         {
             *static_cast<uint8_t*>(g_memory.Translate(region::Addr(kBlackEditionFlag))) = 1;
             fprintf(stderr, "[fixes] Black Edition content: on\n");
         }
-        if (settings::GetBool(settings::Id::UnlockAllThings))
-            ApplyUnlockAllThings();
-        static const uint32_t unlockListener = settings::Subscribe([](settings::Id id) {
-            if (id == settings::Id::UnlockAllThings)
-                ApplyUnlockAllThings();
-        });
-        (void)unlockListener;
+        if (settings::GetBool(settings::Id::FixTimebug))
+        {
+            s_fixTimebug = true;
+            fprintf(stderr, "[fixes] Timebug: on\n");
+        }
         if (settings::GetBool(settings::Id::FixCopSpoilerDamage))
         {
             auto* map = static_cast<be<uint32_t>*>(g_memory.Translate(region::Addr(kDamageZoneMap)));
@@ -1163,41 +1197,22 @@ namespace fixes
             }
             fprintf(stderr, "[fixes] Cop spoiler damage: on\n");
         }
-        if (settings::GetBool(settings::Id::FixTimebug))
-        {
-            s_fixTimebug = true;
-            fprintf(stderr, "[fixes] Timebug: on\n");
-        }
         if (settings::GetBool(settings::Id::ModernGamepadLayouts))
         {
             s_modernLayouts = true;
             fprintf(stderr, "[fixes] Modern gamepad layouts: on\n");
         }
-    }
-}
-
-// Fix Stuck Weather: cutscene time-of-day events set an overcast override
-// (>= 0 replaces the cycle) that is rarely cleared. Cleared in the FE.
-// Ported from X360 Stuff Pack (ResetOvercastOverrideAfterNIS).
-namespace
-{
-    constexpr uint32_t kOvercastOverride = 0x82900CCC;  // float, < 0 = off
-    constexpr uint32_t kGameFlowState = 0x82A39AD8;     // 3 = in FE
-}
-
-// Time-of-day lighting update (per frame).
-SB_HOOK(sub_822265D0)
-{
-    if (settings::GetBool(settings::Id::FixStuckWeather)
-        && PPC_LOAD_U32(region::Addr(kGameFlowState)) == 3)
-    {
-        const uint32_t at = region::Addr(kOvercastOverride);
-        auto& overcast = *static_cast<be<float>*>(g_memory.Translate(at));
-        if (overcast >= 0.0f)
+        if (ui::quit::kOffered && settings::GetBool(settings::Id::MainMenuQuit))
         {
-            fprintf(stderr, "[fixes] Stuck weather: cleared %.3f\n", float(overcast));
-            overcast = -1.0f;
+            fe::OnUnhandledButton(NoteMainMenuBack);
+            fprintf(stderr, "[fixes] Main menu quit: on\n");
         }
+        if (settings::GetBool(settings::Id::UnlockAllThings))
+            ApplyUnlockAllThings();
+        static const uint32_t unlockListener = settings::Subscribe([](settings::Id id) {
+            if (id == settings::Id::UnlockAllThings)
+                ApplyUnlockAllThings();
+        });
+        (void)unlockListener;
     }
-    SB_ORIGINAL(sub_822265D0)(ctx, base);
 }
