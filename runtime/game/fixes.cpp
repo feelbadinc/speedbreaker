@@ -1086,10 +1086,56 @@ SB_HOOK(sub_822B9980)
         SB_ORIGINAL(sub_822B9980)(ctx, base);
 }
 
+// Fixes that don't log when they act: announced at boot when
+// changed from the default, and whenever they are switched.
+namespace
+{
+    constexpr settings::Id kAnnounced[] = {
+        settings::Id::CarbonStyleRaceProgress, settings::Id::FixLeaderboardRefresh,
+        settings::Id::HideSubtitleBackground, settings::Id::InGameTraxSkip,
+        settings::Id::LongerAliasNames, settings::Id::MaxPerformanceOnShop,
+        settings::Id::MirrorInChaseCams, settings::Id::ShowHudOnLookback,
+        settings::Id::Subtitles, settings::Id::TipsOnLoadscreens,
+        settings::Id::WorldMapAnywhere,
+    };
+
+    const char* StateText(settings::Id id)
+    {
+        const settings::Option& o = settings::Info(id);
+        if (o.type == settings::Type::Bool)
+            return settings::GetBool(id) ? "on" : "off";
+        for (const settings::EnumEntry& e : o.entries)
+            if (e.value == settings::GetInt(id))
+                return e.label;
+        return "?";
+    }
+
+    void AnnounceFix(settings::Id id)
+    {
+        fprintf(stderr, "[fixes] %s: %s\n", settings::Info(id).label, StateText(id));
+    }
+}
+
 namespace fixes
 {
     void ApplyAtBoot()
     {
+        static double announced[std::size(kAnnounced)];
+        for (size_t i = 0; i < std::size(kAnnounced); i++)
+        {
+            announced[i] = settings::GetValue(kAnnounced[i]);
+            if (announced[i] != settings::DefaultValue(kAnnounced[i]))
+                AnnounceFix(kAnnounced[i]);
+        }
+        static const uint32_t announceListener = settings::Subscribe([](settings::Id id) {
+            for (size_t i = 0; i < std::size(kAnnounced); i++)
+                if (kAnnounced[i] == id && settings::GetValue(id) != announced[i])
+                {
+                    announced[i] = settings::GetValue(id);
+                    AnnounceFix(id);
+                }
+        });
+        (void)announceListener;
         if (ui::quit::kOffered && settings::GetBool(settings::Id::MainMenuQuit))
         {
             fe::OnUnhandledButton(NoteMainMenuBack);
