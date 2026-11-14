@@ -157,7 +157,7 @@ namespace settings
         InGameTraxSkip,
         MaxPerformanceOnShop,
         WorldMapAnywhere,
-        CarbonStyleRaceProgress,
+        CarbonStyleLapProgress,
         MainMenuQuit,
         HideXboxLiveEntry,
         HideEsrbDisclaimer,

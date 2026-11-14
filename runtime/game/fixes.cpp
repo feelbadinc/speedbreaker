@@ -895,7 +895,7 @@ bool WorldMapEventCheck()
 bool RaceProgressLapText(PPCRegister& r3, PPCRegister& r31)
 {
     uint8_t* base = g_memory.base;
-    return settings::GetBool(settings::Id::CarbonStyleRaceProgress)
+    return settings::GetBool(settings::Id::CarbonStyleLapProgress)
         && r3.u32 != 0 && PPC_LOAD_U32(r31.u32 + 60) == 1;  // lap total
 }
 
@@ -1134,7 +1134,7 @@ namespace
     constexpr settings::Id kAnnounced[] = {
         settings::Id::FixLeaderboardRefresh, settings::Id::LongerAliasNames,
         settings::Id::InGameTraxSkip, settings::Id::MaxPerformanceOnShop,
-        settings::Id::WorldMapAnywhere, settings::Id::CarbonStyleRaceProgress,
+        settings::Id::WorldMapAnywhere, settings::Id::CarbonStyleLapProgress,
         settings::Id::ShowHudOnLookback, settings::Id::MirrorInChaseCams,
         settings::Id::TipsOnLoadscreens, settings::Id::HideSubtitleBackground,
         settings::Id::Subtitles,

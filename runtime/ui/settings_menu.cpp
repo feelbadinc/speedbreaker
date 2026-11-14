@@ -964,7 +964,7 @@ namespace ui
                 ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Allow skip." : "Original behavior.");
                 RowDescription(o);
             }
-            else if (o.id == Id::CarbonStyleRaceProgress)
+            else if (o.id == Id::CarbonStyleLapProgress)
             {
                 ImGui::TextDisabled("Current: %s", settings::GetBool(o.id) ? "Carbon-style." : "Original behavior.");
                 RowDescription(o);
